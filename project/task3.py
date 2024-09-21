@@ -4,18 +4,20 @@ from collections.abc import Iterable
 from pyformlang.finite_automaton import Symbol
 from functools import reduce
 from networkx import MultiDiGraph
+import itertools
 
 class AdjacencyMatrixFA:
-    def __init__(self, automation : NondeterministicFiniteAutomaton = None) -> None:
+    def __init__(self, automation : NondeterministicFiniteAutomaton = None):
         self.matricies = {}
 
         if automation is None:
-            self.states = set()
+            self.states = {}
             self.alphabet = set()
             self.start_states = set()
             self.final_states = set()
+            return
 
-        self.states = automation.states
+        self.states = {st : i for (i, st) in enumerate(automation.states)}
         self.states_count = len(self.states)
         self.alphabet = automation.symbols
 
@@ -24,26 +26,46 @@ class AdjacencyMatrixFA:
         for s in self.alphabet:
             self.matricies[s] = sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
 
-        for u, v, edge_labels in graph.edges(data=True):
-            for _, value in edge_labels.items():
-                self.matricies[value][u, v] = True
+        for u, v, label in graph.edges(data="label"):
+            if not (u.startswith("starting_") or v.startswith("starting_")):
+                self.matricies[label][self.states[u], self.states[v]] = True
         
-        self.start_states = automation.start_states
-        self.final_states = automation.final_states
+        self.start_states = {self.states[key] for key in automation.start_states}
+        self.final_states = {self.states[key] for key in automation.final_states}
 
     def accepts(self, word: Iterable[Symbol]) -> bool:
         symbols = list(word)
 
-        for start in self.start_states:
-            if self._accepts_helper(symbols, start):
+        configs = [(symbols, st) for st in self.start_states]
+
+        while len(configs) > 0:
+            rest, state = configs.pop()
+
+            if len(rest) == 0 and state in self.final_states:
                 return True
+            
+            for assume_next in self.states.values():
+                if (self.matricies[rest[0]][state, assume_next]):
+                    configs.append((rest[1:], assume_next))
         
         return False
     
+    def _accepts_helper(self, word: list[Symbol], state: int) -> bool:
+        if (len(word) == 0):
+            return True
+                
+        symbol = word[0]
+        for assume_next in self.states.values():
+            if self.matricies[symbol][state, assume_next]:
+                if self._accepts_helper(word[1:], assume_next):
+                    return True
+        
+        return False
+
     def is_empty(self) -> bool:
         tr_clos = self.transitive_closure()
 
-        for st, fn in self.start_states, self.final_states:
+        for st, fn in itertools.product(self.start_states, self.final_states):
             if tr_clos[st, fn]:
                 return False
             
@@ -51,28 +73,18 @@ class AdjacencyMatrixFA:
 
 
     def transitive_closure(self):
+        if not self.matricies:
+            return sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
+        
         # алгоритм уоршалла
-        reach = reduce(lambda x, y: x | y, self.matricies)
+        reach = reduce(lambda x, y: x + y, self.matricies.values())
         
         for k in range(self.states_count):
             for i in range(self.states_count):
                 for j in range(self.states_count):
-                    reach[i][j] = reach[i][j] or (reach[i][k] and reach[k][j])
+                    reach[i, j] = reach[i, j] or (reach[i, k] and reach[k, j])
 
         return reach
-
-    def _accepts_helper(self, word: list[Symbol], state: int) -> bool:
-        if (word.count == 0):
-            return True
-
-        symbol = word[0]
-
-        for assume_next in self.states:
-            if self.matricies[symbol][state, assume_next]:
-                if self._accepts_helper(word[1:], assume_next):
-                    return True
-        
-        return False
     
 
 def intersect_automata(automaton1: AdjacencyMatrixFA,
@@ -82,11 +94,24 @@ def intersect_automata(automaton1: AdjacencyMatrixFA,
     intersect = AdjacencyMatrixFA()
 
     intersect.states_count = automaton1.states_count * automaton2.states_count
-    intersect.matricies = [sp.kron(M1, M2, format='csr') for M1, M2 in zip(A1, A2)]
-    intersect.states = [(i1 * automaton2 + i2) for i1 in automaton1.states for i2 in automaton2.states]
-    intersect.start_states = [(s1 * automaton2.states_count + s2) for s1 in automaton1.start_states for s2 in automaton2.start_states]
-    intersect.final_states = [(f1 * automaton2.states_count + f2) for f1 in automaton1.final_states for f2 in automaton2.final_states]
+
+    for k in A1.keys():
+        if A2.get(k) is None:
+            continue
+        intersect.matricies[k] = sp.kron(A1[k], A2[k], format='csr')
+
+    intersect.states = {
+        (i1, i2): (automaton1.states[i1] * automaton2.states_count + automaton2.states[i2]) 
+        for i1 in automaton1.states for i2 in automaton2.states}
+
+    intersect.start_states = [(s1 * automaton2.states_count + s2) 
+                              for s1 in automaton1.start_states for s2 in automaton2.start_states]
+    intersect.final_states = [(f1 * automaton2.states_count + f2) 
+                              for f1 in automaton1.final_states for f2 in automaton2.final_states]
+
     intersect.alphabet = automaton1.alphabet.union(automaton2.alphabet)
+
+    return intersect
 
 def tensor_based_rpq(regex: str, graph: MultiDiGraph, start_nodes: set[int],
       final_nodes: set[int]) -> set[tuple[int, int]]:
@@ -97,6 +122,10 @@ def tensor_based_rpq(regex: str, graph: MultiDiGraph, start_nodes: set[int],
     intersect = intersect_automata(adj_matrix_by_reg, adj_matrix_by_graph)
 
     tr_cl = intersect.transitive_closure()
+
+    print(start_nodes)
+    print(final_nodes)
+    print(tr_cl.get_shape())
 
     return {(st, fn) for st in start_nodes for fn in final_nodes if tr_cl[st, fn]}
 
