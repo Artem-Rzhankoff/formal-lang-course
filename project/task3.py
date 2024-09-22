@@ -27,7 +27,7 @@ class AdjacencyMatrixFA:
             self.matricies[s] = sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
 
         for u, v, label in graph.edges(data="label"):
-            if not (u.startswith("starting_") or v.startswith("starting_")):
+            if not (str(u).startswith("starting_") or str(v).startswith("starting_")):
                 self.matricies[label][self.states[u], self.states[v]] = True
         
         self.start_states = {self.states[key] for key in automation.start_states}
@@ -49,18 +49,6 @@ class AdjacencyMatrixFA:
                     configs.append((rest[1:], assume_next))
         
         return False
-    
-    def _accepts_helper(self, word: list[Symbol], state: int) -> bool:
-        if (len(word) == 0):
-            return True
-                
-        symbol = word[0]
-        for assume_next in self.states.values():
-            if self.matricies[symbol][state, assume_next]:
-                if self._accepts_helper(word[1:], assume_next):
-                    return True
-        
-        return False
 
     def is_empty(self) -> bool:
         tr_clos = self.transitive_closure()
@@ -73,11 +61,14 @@ class AdjacencyMatrixFA:
 
 
     def transitive_closure(self):
+        reach = sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
+        reach.setdiag(True)
+
         if not self.matricies:
-            return sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
+            return reach
         
         # алгоритм уоршалла
-        reach = reduce(lambda x, y: x + y, self.matricies.values())
+        reach : sp.csr_matrix = reach + reduce(lambda x, y: x + y, self.matricies.values())
         
         for k in range(self.states_count):
             for i in range(self.states_count):
@@ -102,12 +93,12 @@ def intersect_automata(automaton1: AdjacencyMatrixFA,
 
     intersect.states = {
         (i1, i2): (automaton1.states[i1] * automaton2.states_count + automaton2.states[i2]) 
-        for i1 in automaton1.states for i2 in automaton2.states}
+        for i1, i2 in itertools.product(automaton1.states.keys(), automaton2.states.keys())}
 
     intersect.start_states = [(s1 * automaton2.states_count + s2) 
-                              for s1 in automaton1.start_states for s2 in automaton2.start_states]
+                              for s1, s2 in itertools.product(automaton1.start_states, automaton2.start_states)]
     intersect.final_states = [(f1 * automaton2.states_count + f2) 
-                              for f1 in automaton1.final_states for f2 in automaton2.final_states]
+                              for f1, f2 in itertools.product(automaton1.final_states, automaton2.final_states)]
 
     intersect.alphabet = automaton1.alphabet.union(automaton2.alphabet)
 
@@ -123,9 +114,13 @@ def tensor_based_rpq(regex: str, graph: MultiDiGraph, start_nodes: set[int],
 
     tr_cl = intersect.transitive_closure()
 
-    print(start_nodes)
-    print(final_nodes)
-    print(tr_cl.get_shape())
-
-    return {(st, fn) for st in start_nodes for fn in final_nodes if tr_cl[st, fn]}
+    reg_raw_start_states = [key for key in adj_matrix_by_reg.states 
+                            if adj_matrix_by_reg.states[key] in adj_matrix_by_reg.start_states]
+    reg_raw_final_states = [key for key in adj_matrix_by_reg.states 
+                            if adj_matrix_by_reg.states[key] in adj_matrix_by_reg.final_states]
+    
+    return {(st, fn) 
+            for (st, fn) in itertools.product(start_nodes, final_nodes)
+            for (st_reg, fn_reg) in itertools.product(reg_raw_start_states, reg_raw_final_states)
+            if tr_cl[intersect.states[(st_reg, st)], intersect.states[(fn_reg, fn)]]}
 
