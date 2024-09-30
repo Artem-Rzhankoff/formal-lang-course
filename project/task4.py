@@ -1,9 +1,25 @@
+import numpy as np
 from networkx import MultiDiGraph
 from pyformlang.finite_automaton import Symbol
 from functools import reduce
-from scipy.sparse import bsr_matrix, vstack
+from scipy.sparse import csr_matrix
 from project.task2 import regex_to_dfa, graph_to_nfa
 from project.task3 import AdjacencyMatrixFA
+
+
+def _initial_front(
+    dfa: AdjacencyMatrixFA, dfa_start_state: int, nfa: AdjacencyMatrixFA
+):
+    nfa_st_states_count = len(nfa.start_states)
+    data = np.ones(nfa_st_states_count, dtype=bool)
+    rows = [dfa_start_state + dfa.states_count * i for i in range(nfa_st_states_count)]
+    columns = [st_state for st_state in nfa.start_states]
+
+    return csr_matrix(
+        (data, (rows, columns)),
+        shape=(dfa.states_count * nfa_st_states_count, nfa.states_count),
+        dtype=bool,
+    )
 
 
 def ms_bfs_based_rpq(
@@ -12,41 +28,31 @@ def ms_bfs_based_rpq(
     adj_matrix_dfa = AdjacencyMatrixFA(regex_to_dfa(regex))
     adj_matrix_nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes))
 
-    transposed_matricies: dict[Symbol, bsr_matrix] = {}
+    transposed_matricies: dict[Symbol, csr_matrix] = {}
     for symbol, matrix in adj_matrix_dfa.matricies.items():
         transposed_matricies[symbol] = matrix.transpose()
 
     dfa_states_count = adj_matrix_dfa.states_count
     dfa_start_state = list(adj_matrix_dfa.start_states)[0]
 
-    nfa_states_count = adj_matrix_nfa.states_count
     nfa_start_states = adj_matrix_nfa.start_states
 
-    front = vstack(
-        [
-            bsr_matrix(
-                ([True], ([dfa_start_state], [nfa_start_state])),
-                shape=(dfa_states_count, nfa_states_count),
-                dtype=bool,
-            )
-            for nfa_start_state in nfa_start_states
-        ]
-    )
+    front = _initial_front(adj_matrix_dfa, dfa_start_state, adj_matrix_nfa)
     visited = front
 
     symbols = adj_matrix_dfa.matricies.keys() & adj_matrix_nfa.matricies.keys()
 
     while front.count_nonzero() > 0:
-        next_fronts: dict[Symbol, bsr_matrix] = {}
+        next_fronts: dict[Symbol, csr_matrix] = {}
         for s in symbols:
-            next_front = front @ adj_matrix_nfa.matricies[s]
-            next_fronts[s] = vstack(
-                [
+            next_fronts[s] = front @ adj_matrix_nfa.matricies[s]
+
+            for i in range(len(nfa_start_states)):
+                next_fronts[s][i * dfa_states_count : (i + 1) * dfa_states_count] = (
                     transposed_matricies[s]
-                    @ next_front[dfa_states_count * i : dfa_states_count * (i + 1)]
-                    for i in range(len(start_nodes))
-                ]
-            )
+                    @ next_fronts[s][dfa_states_count * i : dfa_states_count * (i + 1)]
+                )
+
         front = reduce(lambda x, y: x + y, next_fronts.values(), front)
         front = front > visited
         visited += front
