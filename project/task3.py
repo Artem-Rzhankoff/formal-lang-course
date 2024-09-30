@@ -1,7 +1,7 @@
-from project.task2 import NondeterministicFiniteAutomaton, regex_to_dfa, graph_to_nfa
+from project.task2 import regex_to_dfa, graph_to_nfa
 import scipy.sparse as sp
 from collections.abc import Iterable
-from pyformlang.finite_automaton import Symbol
+from pyformlang.finite_automaton import Symbol, NondeterministicFiniteAutomaton
 from functools import reduce
 from networkx import MultiDiGraph
 import itertools
