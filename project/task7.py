@@ -22,8 +22,8 @@ def matrix_based_cfpq(
 
     matricies = {var: csc_matrix((n, n), dtype=bool) for var in wnf.variables}
 
-    for v1, v2, l in graph.edges.data("label"):
-        tv = ttv.get(Terminal(l), set())
+    for v1, v2, label in graph.edges.data("label"):
+        tv = ttv.get(Terminal(label), set())
         i1, i2 = node_idx[v1], node_idx[v2]
         for var in tv:
             matricies[var][i1, i2] = True
