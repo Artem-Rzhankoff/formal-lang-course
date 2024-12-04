@@ -1,10 +1,4 @@
-from antlr4 import (
-    ParserRuleContext,
-    CommonTokenStream,
-    InputStream,
-    ParseTreeWalker,
-    TerminalNode,
-)
+from antlr4 import ParserRuleContext, CommonTokenStream, InputStream, ParseTreeWalker
 from project.GraphLanguageListener import GraphLanguageListener
 from project.GraphLanguageLexer import GraphLanguageLexer
 from project.GraphLanguageParser import GraphLanguageParser
@@ -27,7 +21,7 @@ def program_to_tree(program: str) -> tuple[ParserRuleContext, bool]:
 
 
 def nodes_count(tree: ParserRuleContext) -> int:
-    listener = TreeListener()
+    listener = TreeNodesCountListener()
     walker = ParseTreeWalker()
 
     walker.walk(listener, tree)
@@ -36,20 +30,27 @@ def nodes_count(tree: ParserRuleContext) -> int:
 
 
 def tree_to_program(tree: ParserRuleContext) -> str:
-    if isinstance(tree, TerminalNode):
-        return tree.getText()
-    result = []
-    for child in tree.children:
-        child_text = tree_to_program(child)
-        result.append(" ")
-        result.append(child_text)
+    listener = TreeToProgramListener()
+    walker = ParseTreeWalker()
+    walker.walk(listener, tree)
 
-    return "".join(result)
+    return listener.getProgram()
 
 
-class TreeListener(GraphLanguageListener):
+class TreeNodesCountListener(GraphLanguageListener):
     def __init__(self):
         self.nodes_count = 0
 
     def enterEveryRule(self, ctx):
         self.nodes_count += 1
+
+
+class TreeToProgramListener(GraphLanguageListener):
+    def __init__(self):
+        self.tokens = []
+
+    def visitTerminal(self, node):
+        self.tokens.append(node.getText())
+
+    def getProgram(self):
+        return " ".join(self.tokens)
