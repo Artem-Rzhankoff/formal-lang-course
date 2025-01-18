@@ -4,9 +4,9 @@ program: stmt* EOF;
 
 stmt : bind | add | remove | declare;
 
-declare : 'let' VAR 'is' 'graph';
+declare : 'let' VAR 'is' 'graph'; // инициализируем граф -- переменная становится графом, считаем что все вершины стартовые и финальные
 
-bind : 'let' VAR '=' expr;
+bind : 'let' VAR '=' expr; // тут у переменной может быть любой тип, вопрос - как его хранить?
 
 remove : 'remove' ('vertex' | 'edge' | 'vertices') expr 'from' VAR;
 
@@ -28,7 +28,7 @@ regexpr : CHAR
 
 range : '[' NUM '..' NUM? ']';
 
-select : v_filter? v_filter? 'return' VAR (',' VAR)? 'where' VAR 'reachable' 'from' VAR 'in' VAR 'by' expr;
+select : v_filter? v_filter? 'return' VAR (',' VAR)? 'where' VAR 'reachable' 'from' VAR 'in' VAR 'by' expr; // вот тут походу пересечение юзать будем
 
 v_filter  : 'for' VAR 'in' expr;
 
