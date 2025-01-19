@@ -1,9 +1,11 @@
+from abc import ABC, abstractmethod
 from pyformlang.cfg import CFG
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton, State, Symbol
 from pyformlang.regular_expression import Regex
 from project.grammar.extend_cfg import extend_contex_free_grammar
 from project.grammar.rsm import rsm_from_extended_cfg, RecursiveStateMachine
 from project.task2 import regex_to_dfa
+from project.interpret.utils import intersect_nfa
 
 class LSet:
     def __init__(self, items: set, ttype=None):
@@ -39,16 +41,32 @@ class LTriple:
         
         return self.start == value.start and self.label == value.label and self.final == value.final   
 
-class LCFG:
+class LAutomata:
+    @abstractmethod
+    def union(self, second: "LAutomata") -> "LAutomata":
+        ...
+    
+    @abstractmethod
+    def intersect(self, second: "LAutomata") -> "LAutomata":
+        ...
+
+    @abstractmethod
+    def concat(self, second: "LAutomata") -> "LAutomata":
+        ...
+
+class LCFG(LAutomata, ABC):
     def __init__(self, cfg: CFG):
         self.grammar = cfg
-        extended_cfg = extend_contex_free_grammar(cfg)
-        self.rsm : RecursiveStateMachine = rsm_from_extended_cfg(extended_cfg)
+        #extended_cfg = extend_contex_free_grammar(cfg)
+        #self.rsm : RecursiveStateMachine = rsm_from_extended_cfg(extended_cfg)
         self.type = LSet({var.value for var in cfg.variables}).type
-
     
     def __eq__(self, value: "LCFG"):
         return self.grammar == value.grammar and self.type == value.type
+
+    @classmethod
+    def from_string(cfg_class, regex: str, starting_symbol = "S") -> "LCFG":
+        return cfg_class(Regex(regex).to_cfg(starting_symbol))
     
     def edges(self) -> LSet:
         return LSet(
@@ -68,15 +86,38 @@ class LCFG:
             }
         )
     
+    def union(self, second) -> "LCFG":
+        if isinstance(second, LCFG):
+            return LCFG(self.grammar.union(second.grammar))
+        elif isinstance(second, LFiniteAutomata):
+            second_regex : Regex = second.nfa.to_regex()
+            return LCFG(self.grammar.union(second_regex.to_cfg()))
+        else:
+            raise TypeError()
+        
+    def intersect(self, second):
+        if isinstance(second, LFiniteAutomata):
+            return LCFG(self.grammar.intersection(second.nfa))
+        else:
+            raise TypeError()
+        
+    def concat(self, second):
+        if isinstance(second, LCFG):
+            return LCFG(self.grammar.concatenate(second.grammar))
+        elif isinstance(second, LFiniteAutomata):
+            second_regex : Regex = second.nfa.to_regex()
+            return LCFG(self.grammar.concatenate(second_regex.to_cfg()))
+    
 
-class LFiniteAutomata:
+class LFiniteAutomata(LAutomata, ABC):
     def __init__(self, nfa: NondeterministicFiniteAutomaton, ttype=None):
         self.nfa = nfa
         self.type = LSet({state.value for state in nfa.states}, ttype).type
 
     @classmethod
     def from_string(fa_class, regex: str):
-        return fa_class(regex_to_dfa(Regex(regex)))
+        print(f'Регулярка {regex}')
+        return fa_class(regex_to_dfa(regex))
 
 
     def edges(self) -> LSet:
@@ -111,8 +152,21 @@ class LFiniteAutomata:
     def remove_vertex(self, vertex):
         self.nfa.states.remove(State(vertex))
 
+    def union(self, second):
+        if isinstance(second, LFiniteAutomata):
+            return LFiniteAutomata(self.nfa.union(second.nfa))
+        return second.union(self)
+    
+    def intersect(self, second):
+        if isinstance(second, LFiniteAutomata):
+            return LFiniteAutomata(intersect_nfa(self.nfa, second.nfa))
+        return second.intersect(self)
+    
+    def concat(self, second):
+        if isinstance(second, LFiniteAutomata):
+            return LFiniteAutomata(self.nfa.concatenate(second.nfa))
+        return second.concat(self)
+
     def _init_state(self, state: State):
         self.nfa.add_start_state(state)
         self.nfa.add_final_state(state)
-
-

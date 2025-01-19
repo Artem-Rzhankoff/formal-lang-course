@@ -4,9 +4,9 @@ program: stmt* EOF;
 
 stmt : bind | add | remove | declare;
 
-declare : 'let' VAR 'is' 'graph'; // инициализируем граф -- переменная становится графом, считаем что все вершины стартовые и финальные
+declare : 'let' VAR 'is' 'graph';
 
-bind : 'let' VAR '=' expr; // тут у переменной может быть любой тип, вопрос - как его хранить?
+bind : 'let' VAR '=' expr;
 
 remove : 'remove' ('vertex' | 'edge' | 'vertices') expr 'from' VAR;
 
