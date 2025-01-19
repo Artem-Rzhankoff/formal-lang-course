@@ -9,6 +9,7 @@ import itertools
 
 class AdjacencyMatrixFA:
     def __init__(self, automation: NondeterministicFiniteAutomaton = None):
+        self.automation = automation
         self.matricies = {}
 
         if automation is None:

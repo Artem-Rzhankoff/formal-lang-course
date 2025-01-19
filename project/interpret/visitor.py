@@ -1,9 +1,10 @@
 from antlr4 import ParserRuleContext
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
+from pyformlang.rsa import RecursiveAutomaton
 
 from project.GraphLanguageParser import GraphLanguageParser
 from project.GraphLanguageVisitor import GraphLanguageVisitor
-from project.interpret.types import LFiniteAutomata, LTriple, LSet
+from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
 
 class InterpreterVisitor(GraphLanguageVisitor):
     def __init__(self):
@@ -61,7 +62,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         if ctx.NUM():
             return int(ctx.getText())
         elif ctx.CHAR():
-            return ctx.getText()
+            return ctx.getText().strip('"')
         elif ctx.VAR():
             return self.envs[-1][ctx.getText()]
         elif ctx.edge_expr():
@@ -69,24 +70,47 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif ctx.set_expr():
             return self.visitSet_expr(ctx.set_expr())
         elif ctx.regexpr():
-            return
+            return self.visitRegexpr(ctx.regexpr())
         else:
             return
-
-    
-    def visitRegexpr(self, ctx):
-        return LFiniteAutomata.from_string(ctx.regexpr().getText()[2:-1])
-    
-    def visitSet_expr(self, ctx):
-        expr_nodes = ctx.expr()
-        return LSet(set(self.visit(expr) for expr in expr_nodes))
     
     def visitEdge_expr(self, ctx):
-        print()
+        RecursiveAutomaton.from_regex()
         return LTriple(
             self.visit(ctx.expr(0)),
             self.visit(ctx.expr(1)),
             self.visit(ctx.expr(2))
         )
+    
+    def visitSet_expr(self, ctx):
+        expr_nodes = ctx.expr()
+        return LSet(set(self.visit(expr) for expr in expr_nodes))
+    
+    def visitRegexpr(self, ctx):
+        if ctx.CHAR():
+            return LFiniteAutomata.from_string(ctx.getText().strip('"'))
+        elif ctx.VAR():
+            var = ctx.getText()
+            if var in self.envs[-1]:
+                return self.envs[1][var]
+            return LCFG.from_string(var, var)
+        elif ctx.getChild(0).getText() == '(':
+            return self.visit(ctx.regexpr(0))
+        elif ctx.getChild(1).getText() =='|':
+            first : LAutomata = self.visit(ctx.regexpr(0))
+            second : LAutomata = self.visit(ctx.regexpr(1))
+            return first.union(second)
+        elif ctx.getChild(1).getText() == '^':
+            expr = self.visit(ctx.regexpr(0))
+            range = self.visit(ctx.regexpr(1))
+            return  
+        elif ctx.getChild(1).getText() == '.':
+            first : LAutomata = self.visit(ctx.regexpr(0))
+            second : LAutomata = self.visit(ctx.regexpr(1))
+            return first.concat(second)
+        else: # &
+            first : LAutomata = self.visit(ctx.regexpr(0))
+            second : LAutomata = self.visit(ctx.regexpr(1))
+            return first.intersect(second)
 
     
