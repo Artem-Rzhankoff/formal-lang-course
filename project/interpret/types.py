@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from pyformlang.cfg import CFG
+from pyformlang.cfg import CFG, Production, Variable, Terminal
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton, State, Symbol
 from pyformlang.regular_expression import Regex
 from project.grammar.extend_cfg import extend_contex_free_grammar
@@ -55,11 +55,14 @@ class LAutomata:
         ...
 
 class LCFG(LAutomata, ABC):
-    def __init__(self, cfg: CFG):
+    def __init__(self, cfg: CFG, from_var=False):
         self.grammar = cfg
         #extended_cfg = extend_contex_free_grammar(cfg)
         #self.rsm : RecursiveStateMachine = rsm_from_extended_cfg(extended_cfg)
         self.type = LSet({var.value for var in cfg.variables}).type
+        self.from_var = from_var
+    
+    var_prefix = "VAR#"
     
     def __eq__(self, value: "LCFG"):
         return self.grammar == value.grammar and self.type == value.type
@@ -67,6 +70,16 @@ class LCFG(LAutomata, ABC):
     @classmethod
     def from_string(cfg_class, regex: str, starting_symbol = "S") -> "LCFG":
         return cfg_class(Regex(regex).to_cfg(starting_symbol))
+    
+    @classmethod
+    def from_var(cfg_class, var_name: str) -> "LCFG":
+        return cfg_class(CFG(start_symbol=f"{cfg_class.var_prefix}{var_name}"), True)
+    
+    def add_start_symbol(self, start_symbol: str):
+        extra_production = Production(start_symbol, [self.grammar.start_symbol])
+        productions = set(self.grammar.productions) | {extra_production}
+
+        self.grammar = CFG(start_symbol=start_symbol, productions=productions)
     
     def edges(self) -> LSet:
         return LSet(
@@ -107,6 +120,42 @@ class LCFG(LAutomata, ABC):
         elif isinstance(second, LFiniteAutomata):
             second_regex : Regex = second.nfa.to_regex()
             return LCFG(self.grammar.concatenate(second_regex.to_cfg()))
+    
+    def get_grammar_nonterm_names(self) -> list[str]:
+        return [str(var).removeprefix(self.var_prefix) for var in self.grammar.variables]
+        
+    def merge_grammars(self, grammars: list[CFG]) -> "LCFG":
+        # self - наша грамматика, в которую хотим подтянуть другие
+        start_symbol = Variable('START#')
+        
+        acc = self.grammar
+
+        for grammar in grammars:
+            acc_prepared : CFG = LCFG.get_grammar_with_renamed_nonterms(acc, str(grammar.start_symbol))
+            rules1 = acc_prepared.productions
+            rules2 = grammar.productions
+            merged = set(rules1).union(set(rules2))\
+                .union({Production(start_symbol, [acc_prepared.start_symbol])})\
+                .union({Production(start_symbol, [grammar.start_symbol])})
+            
+            acc = CFG(productions=merged, start_symbol=start_symbol)
+
+        return acc
+    
+    @classmethod
+    def get_grammar_with_renamed_nonterms(grammar: CFG, var_name: str) -> CFG:
+        productions = grammar.productions
+
+        def prepare(production: Production) -> Production:
+            body = []
+            for symbol in production.body:
+                if symbol in grammar.variables and str(symbol).startswith(f"{var_name}#"):
+                    body.append(Variable(var_name))
+                else:
+                    body.append(symbol)
+            return Production(production.head, body)
+
+        return CFG(start_symbol=grammar.start_symbol, productions=[prepare(prod) for prod in productions])
     
 
 class LFiniteAutomata(LAutomata, ABC):

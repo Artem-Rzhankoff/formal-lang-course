@@ -1,6 +1,7 @@
 from antlr4 import ParserRuleContext
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
 from pyformlang.rsa import RecursiveAutomaton
+from pyformlang.cfg import CFG
 
 from project.GraphLanguageParser import GraphLanguageParser
 from project.GraphLanguageVisitor import GraphLanguageVisitor
@@ -9,6 +10,8 @@ from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, L
 class InterpreterVisitor(GraphLanguageVisitor):
     def __init__(self):
         self.envs = [{}]
+        self.processing = set()  # Для отслеживания обрабатываемых переменных (рекурсия)
+        self.pending = {}
 
     def set_var(self, var_name: str, value):
         self.envs[-1][var_name] = value
@@ -24,7 +27,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
     def visitBind(self, ctx):
         var = ctx.VAR().getText()
         value = self.visit(ctx.expr())
-        self.set_var(var, value) # как определять тип переменной ??
+        self.set_var(var, value)
 
     def visitAdd(self, ctx):
         adding_type = ctx.children[1].getText()
@@ -64,7 +67,13 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif ctx.CHAR():
             return ctx.getText().strip('"')
         elif ctx.VAR():
-            return self.envs[-1][ctx.getText()]
+            env = self.envs[-1]
+            var = env[ctx.getText()]
+            if isinstance(var, LCFG):
+                nonterms = LCFG.get_grammar_nonterm_names()
+                grammars : list[CFG] = [env[nonterm].grammar for nonterm in nonterms]
+                return var.merge_grammars(grammars)
+            return var
         elif ctx.edge_expr():
             return self.visitEdge_expr(ctx.edge_expr())
         elif ctx.set_expr():
@@ -89,11 +98,11 @@ class InterpreterVisitor(GraphLanguageVisitor):
     def visitRegexpr(self, ctx):
         if ctx.CHAR():
             return LFiniteAutomata.from_string(ctx.getText().strip('"'))
-        elif ctx.VAR():
+        elif ctx.VAR(): # еще нельзя допускать правила вида A -> A, левую рекурсию короче
             var = ctx.getText()
             if var in self.envs[-1]:
                 return self.envs[1][var]
-            return LCFG.from_string(var, var)
+            return LCFG.from_var(var)
         elif ctx.getChild(0).getText() == '(':
             return self.visit(ctx.regexpr(0))
         elif ctx.getChild(1).getText() =='|':
