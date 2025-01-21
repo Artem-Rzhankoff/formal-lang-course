@@ -14,12 +14,14 @@ class AdjacencyMatrixFA:
 
         if automation is None:
             self.states = {}
+            self.idx_by_state = {}
             self.alphabet = set()
             self.start_states = set()
             self.final_states = set()
             return
 
         self.states = {st: i for (i, st) in enumerate(automation.states)}
+        self.idx_by_state = {i: st for (i, st) in enumerate(automation.states)}
         self.states_count = len(self.states)
         self.alphabet = automation.symbols
 
@@ -80,6 +82,14 @@ class AdjacencyMatrixFA:
                     reach[i, j] = reach[i, j] or (reach[i, k] and reach[k, j])
 
         return reach
+    
+    def update_matricies(self, delta: dict[Symbol, sp.csc_matrix]):
+        for var, matrix in delta.items():
+            if var in self.matricies:
+                self.matricies[var] += matrix
+            else:
+                self.alphabet.add(var)
+                self.matricies[var] = matrix
 
 
 def intersect_automata(
@@ -104,6 +114,8 @@ def intersect_automata(
             automaton1.states.keys(), automaton2.states.keys()
         )
     }
+    intersect.idx_by_state = {i: st for st, i in intersect.states.items()}
+
 
     intersect.start_states = [
         (s1 * automaton2.states_count + s2)

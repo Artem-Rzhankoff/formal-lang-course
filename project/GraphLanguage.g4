@@ -29,7 +29,8 @@ regexpr : CHAR
 range : '[' NUM '..' NUM? ']';
 
 select : v_filter? v_filter? 'return' VAR (',' VAR)? 'where' VAR 'reachable' 'from' VAR 'in' VAR 'by' expr; // вот тут походу пересечение юзать будем
-
+// без фильтров - без старт и фирниш, можем просить вернуть как старт так и финиш
+// один фильтр - ограничения на одно из множеств, два фильтра - на оба
 v_filter  : 'for' VAR 'in' expr;
 
 VAR       : [a-z] [a-z0-9]*;
