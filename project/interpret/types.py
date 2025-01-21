@@ -73,37 +73,22 @@ class LCFG(LAutomata, ABC):
     
     @classmethod
     def from_var(cfg_class, var_name: str) -> "LCFG":
-        return cfg_class(CFG(start_symbol=f"{cfg_class.var_prefix}{var_name}"), True)
+        start_symbol = Variable(f"{cfg_class.var_prefix}{var_name}")
+        return cfg_class(CFG(start_symbol=start_symbol), True)
     
     def add_start_symbol(self, start_symbol: str):
-        extra_production = Production(start_symbol, [self.grammar.start_symbol])
-        productions = set(self.grammar.productions) | {extra_production}
+        extra_production = Production(Variable(start_symbol), [self.grammar.start_symbol])
+        #productions = set(self.grammar.productions) | {extra_production}
 
-        self.grammar = CFG(start_symbol=start_symbol, productions=productions)
-    
-    def edges(self) -> LSet:
-        return LSet(
-            {
-                LTriple(edge[0], edge[2]["label"], edge[1])
-                for subautomata in self.rsm.subautomatons.values()
-                for edge in subautomata.e
-            }
-        )
-    
-    def nodes(self) -> LSet:
-        return LSet(
-            {
-                state.value
-                for subautomata in self.rsm.subautomatons.values()
-                for state in subautomata.states
-            }
-        )
-    
+        productions = [Production(Variable(start_symbol), p.body) if p.head == self.grammar.start_symbol else p for p in self.grammar.productions]
+        self.grammar = CFG(start_symbol=Variable(start_symbol), productions=productions)
+
     def union(self, second) -> "LCFG":
         if isinstance(second, LCFG):
             return LCFG(self.grammar.union(second.grammar))
         elif isinstance(second, LFiniteAutomata):
             second_regex : Regex = second.nfa.to_regex()
+            # какая то странная хуйня с VAR: всплывает
             return LCFG(self.grammar.union(second_regex.to_cfg()))
         else:
             raise TypeError()
@@ -122,34 +107,35 @@ class LCFG(LAutomata, ABC):
             return LCFG(self.grammar.concatenate(second_regex.to_cfg()))
     
     def get_grammar_nonterm_names(self) -> list[str]:
-        return [str(var).removeprefix(self.var_prefix) for var in self.grammar.variables]
+        return [str(var).removeprefix(self.var_prefix).split('#')[0] for var in self.grammar.variables if str(var).startswith(self.var_prefix)]
         
     def merge_grammars(self, grammars: list[CFG]) -> "LCFG":
         # self - наша грамматика, в которую хотим подтянуть другие
-        start_symbol = Variable('START#')
-        
-        acc = self.grammar
+        start_symbol = Variable('START#') # надо модифицировать будет
 
+        acc = self.grammar
+        # наверное нужно получить список всех определенных нетерминалов и уже конкретно их обрабатывать
         for grammar in grammars:
             acc_prepared : CFG = LCFG.get_grammar_with_renamed_nonterms(acc, str(grammar.start_symbol))
+            grammar_prepared : CFG = LCFG.get_grammar_with_renamed_nonterms(grammar, str(acc.start_symbol))
             rules1 = acc_prepared.productions
-            rules2 = grammar.productions
+            rules2 = grammar_prepared.productions
             merged = set(rules1).union(set(rules2))\
-                .union({Production(start_symbol, [acc_prepared.start_symbol])})\
+                .union({Production(start_symbol, [Variable(acc_prepared.start_symbol)])})\
                 .union({Production(start_symbol, [grammar.start_symbol])})
             
             acc = CFG(productions=merged, start_symbol=start_symbol)
 
-        return acc
+        return LCFG(acc)
     
     @classmethod
-    def get_grammar_with_renamed_nonterms(grammar: CFG, var_name: str) -> CFG:
+    def get_grammar_with_renamed_nonterms(cls, grammar: CFG, var_name: str) -> "LCFG":
         productions = grammar.productions
 
         def prepare(production: Production) -> Production:
             body = []
             for symbol in production.body:
-                if symbol in grammar.variables and str(symbol).startswith(f"{var_name}#"):
+                if symbol in grammar.variables and str(symbol).startswith(f"{cls.var_prefix}{var_name}#"):
                     body.append(Variable(var_name))
                 else:
                     body.append(symbol)
@@ -165,7 +151,6 @@ class LFiniteAutomata(LAutomata, ABC):
 
     @classmethod
     def from_string(fa_class, regex: str):
-        print(f'Регулярка {regex}')
         return fa_class(regex_to_dfa(regex))
 
 
@@ -214,7 +199,8 @@ class LFiniteAutomata(LAutomata, ABC):
     def concat(self, second):
         if isinstance(second, LFiniteAutomata):
             return LFiniteAutomata(self.nfa.concatenate(second.nfa))
-        return second.concat(self)
+        
+        return LCFG(self.nfa.to_regex().to_cfg().concatenate(second.grammar))
 
     def _init_state(self, state: State):
         self.nfa.add_start_state(state)
