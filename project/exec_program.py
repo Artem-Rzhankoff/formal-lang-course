@@ -31,36 +31,20 @@ def exec_program(program: str) -> dict[str, set[tuple]]:
     interpreter_visitor.visitProgram(tree[0])
 
 
-    automata : LAutomata = interpreter_visitor.envs[-1]['c']
+    automata : LAutomata = interpreter_visitor.envs[-1]['q']
     if isinstance(automata, LCFG):
         print('rsm')
         print(automata.grammar.to_normal_form().to_text())
-        print(automata.grammar.contains(['"a"', '"c"', '"b"']))
+        print(automata.grammar.contains(['"a"', '"a"', '"a"']))
     elif isinstance(automata, LFiniteAutomata):
         print('nfa')
-        print(automata.nfa.accepts("bc"))
+        print(automata.nfa.accepts(['"a"']))
     else:
         print(f'Кринж {automata}')
 
-    cfg = """
-        S -> A
-        A -> "a" B
-        A -> F C
-        B -> A "b"
-        S -> B
-        F -> 
-        C -> "c"
-          """
-    cfg = CFG.from_text(cfg)
-    # print(cfg.to_text())
-    # print(cfg.get_reachable_symbols())
-    print(cfg.contains(['"a"', '"c"', '"b"']))
-
 if __name__ == "__main__":
     program = """
-let a = ("a" . b) | "c"
-let b = a . "b"
-let c = b
+let q = "a" ^ [2 .. 5] 
     """
     exec_program(program)
 # let q = ("a".q."b") | "c"
