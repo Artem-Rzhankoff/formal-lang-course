@@ -6,13 +6,14 @@ from pyformlang.cfg import CFG
 from project.GraphLanguageParser import GraphLanguageParser
 from project.GraphLanguageVisitor import GraphLanguageVisitor
 from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
+from project.tensor_based_cfpq import cfg_to_rsm, tensor_based_cfpq
 from copy import deepcopy
 
 class InterpreterVisitor(GraphLanguageVisitor):
     def __init__(self):
         self.envs = [{}]
         self.processing = set()  # Для отслеживания обрабатываемых переменных (рекурсия)
-        self.pending = {}
+        self.query_results = {}
 
     def set_var(self, var_name: str, value):
         self.envs[-1][var_name] = value
@@ -172,20 +173,56 @@ class InterpreterVisitor(GraphLanguageVisitor):
         return (var_name, values)
 
     def visitSelect(self, ctx):
-        filters = []
+        filters : dict[str, LSet] = {}
         for filter in ctx.v_filter():
             if filter:
-                filters.append(self.visitV_filter(filter))
-        
-        return_vars = [ctx.VAR(0).getText()]
-        if len(ctx.VAR()) > 4:
-            return_vars.append(ctx.VAR(1).getText())
+                value = self.visitV_filter(filter)
+                filters.setdefault(value[0], value[1])
 
-        finish_var = ctx.VAR(-3).getText()
+        final_var = ctx.VAR(-3).getText()
         start_var = ctx.VAR(-2).getText()
         graph_name = ctx.VAR(-1).getText()
 
+        def get_idx_by_pos(var_name):
+            return 0 if var_name == start_var else 1 # она же всегда в другом случае final?
+
+        f_rv = ctx.VAR(0).getText() 
+        return_vars : tuple[str, int] = [(f_rv, get_idx_by_pos(f_rv))]
+        if len(ctx.VAR()) > 4:
+            s_rv = ctx.VAR(1).getText()
+            return_vars.append((s_rv, get_idx_by_pos(s_rv)))
+
+
+        start_nodes : set[int] | None = None
+        final_nodes : set[int] | None = None
+
+        if start_var in filters.keys:
+            start_nodes = filters[start_var].items
+
+        if final_var in filters.keys:
+            final_nodes = filters[final_var].items
+
+        
+        nfa : NondeterministicFiniteAutomaton = self.envs[-1][graph_name] # тут в теории не должно быть стартовых и финальных
+        for st in start_nodes:
+            nfa.add_start_state(st)
+        for fn in final_nodes:
+            nfa.add_final_state(fn)
+
+        grammar_expr = self.visit(ctx.expr())
+        rsm : RecursiveAutomaton
+
+        if isinstance(grammar_expr, LFiniteAutomata):
+            rsm = RecursiveAutomaton.from_regex(grammar_expr.nfa.to_regex()) # еще эту регулярку надо проверить
+        elif isinstance(grammar_expr, LCFG):
+            rsm = cfg_to_rsm(grammar_expr.grammar)
         
 
+        cfpq_result = tensor_based_cfpq(rsm, nfa, start_nodes, final_nodes)
 
-    
+
+        if len(return_vars) == 2:
+            return cfpq_result
+        else:
+            idx = return_vars[0][1]
+            return set([el[idx] for el in cfpq_result])

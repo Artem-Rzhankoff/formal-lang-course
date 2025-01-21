@@ -70,7 +70,7 @@ def rsm_to_nfa(
 
 def tensor_based_cfpq(
     rsm: RecursiveAutomaton,
-    graph: nx.DiGraph,
+    graph_nfa: NondeterministicFiniteAutomaton,
     start_nodes: set[int] = None,
     final_nodes: set[int] = None,
 ) -> set[tuple[int, int]]:
@@ -113,7 +113,7 @@ def tensor_based_cfpq(
 
         return ans
 
-    graph_nfa = graph_to_nfa(graph, start_nodes, final_nodes)
+    #graph_nfa = graph_to_nfa(graph, start_nodes, final_nodes)
     rsm_nfa = rsm_to_nfa(rsm)
 
     g_matrix = AdjacencyMatrixFA(graph_nfa)
