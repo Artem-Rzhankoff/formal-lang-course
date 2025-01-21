@@ -152,6 +152,40 @@ class InterpreterVisitor(GraphLanguageVisitor):
                 result = result.union(acc)
 
         print(result)
+        # tuple -> LPair
         
         return LCFG(result) if result is CFG else LFiniteAutomata(result)
+    
+    def visitV_filter(self, ctx) -> tuple[str, LSet]:
+        var_name = ctx.VAR().getText()
+        values = self.visit(ctx.expr())
+
+        if isinstance(values, tuple):
+            values = LSet(list(values[0, values[1]+1]))
+        elif isinstance(values, LSet):
+            values = values
+        elif isinstance(values, int):
+            values =  LSet(list(values))
+        else:
+            raise Exception()
+        
+        return (var_name, values)
+
+    def visitSelect(self, ctx):
+        filters = []
+        for filter in ctx.v_filter():
+            if filter:
+                filters.append(self.visitV_filter(filter))
+        
+        return_vars = [ctx.VAR(0).getText()]
+        if len(ctx.VAR()) > 4:
+            return_vars.append(ctx.VAR(1).getText())
+
+        finish_var = ctx.VAR(-3).getText()
+        start_var = ctx.VAR(-2).getText()
+        graph_name = ctx.VAR(-1).getText()
+
+        
+
+
     
