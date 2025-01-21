@@ -27,7 +27,10 @@ class InterpreterVisitor(GraphLanguageVisitor):
     def visitBind(self, ctx):
         var = ctx.VAR().getText()
         value = self.visit(ctx.expr())
+        if isinstance(value, LCFG):
+            value.add_start_symbol(var)
         self.set_var(var, value)
+
 
     def visitAdd(self, ctx):
         adding_type = ctx.children[1].getText()
@@ -57,7 +60,6 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif remove_type == 'edge':
             var.remove_edge(item_to_remove)
         else:
-            print(item_to_remove)
             for vertex in item_to_remove:
                 var.remove_vertex(vertex)
 
@@ -70,7 +72,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
             env = self.envs[-1]
             var = env[ctx.getText()]
             if isinstance(var, LCFG):
-                nonterms = LCFG.get_grammar_nonterm_names()
+                nonterms = var.get_grammar_nonterm_names()
                 grammars : list[CFG] = [env[nonterm].grammar for nonterm in nonterms]
                 return var.merge_grammars(grammars)
             return var
@@ -97,11 +99,9 @@ class InterpreterVisitor(GraphLanguageVisitor):
     
     def visitRegexpr(self, ctx):
         if ctx.CHAR():
-            return LFiniteAutomata.from_string(ctx.getText().strip('"'))
+            return LFiniteAutomata.from_string(ctx.getText())
         elif ctx.VAR(): # еще нельзя допускать правила вида A -> A, левую рекурсию короче
             var = ctx.getText()
-            if var in self.envs[-1]:
-                return self.envs[1][var]
             return LCFG.from_var(var)
         elif ctx.getChild(0).getText() == '(':
             return self.visit(ctx.regexpr(0))
