@@ -6,6 +6,7 @@ from pyformlang.cfg import CFG
 from project.GraphLanguageParser import GraphLanguageParser
 from project.GraphLanguageVisitor import GraphLanguageVisitor
 from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
+from copy import deepcopy
 
 class InterpreterVisitor(GraphLanguageVisitor):
     def __init__(self):
@@ -110,9 +111,10 @@ class InterpreterVisitor(GraphLanguageVisitor):
             second : LAutomata = self.visit(ctx.regexpr(1))
             return first.union(second)
         elif ctx.getChild(1).getText() == '^':
-            expr = self.visit(ctx.regexpr(0))
-            range = self.visit(ctx.regexpr(1))
-            return  
+            expr : LFiniteAutomata | LCFG = self.visit(ctx.regexpr(0))
+            range : tuple = self.visit(ctx.range_())
+            automata = expr.grammar if isinstance(expr, LCFG) else expr.nfa
+            return self._apply_range_to_nfa(automata, range[0], range[1])
         elif ctx.getChild(1).getText() == '.':
             first : LAutomata = self.visit(ctx.regexpr(0))
             second : LAutomata = self.visit(ctx.regexpr(1))
@@ -121,5 +123,35 @@ class InterpreterVisitor(GraphLanguageVisitor):
             first : LAutomata = self.visit(ctx.regexpr(0))
             second : LAutomata = self.visit(ctx.regexpr(1))
             return first.intersect(second)
+        
+    def visitRange(self, ctx) -> tuple:
+        n = int(ctx.NUM(0).getText())
+        if ctx.getChild(2).getText() != "..":
+            return tuple(n)
+        m = int(ctx.NUM(1).getText()) if ctx.NUM(1) else None
+        if m is not None and m < n:
+            raise Exception()
+        
+        return n, m
+    
 
+    def _apply_range_to_nfa(self, nfa: NondeterministicFiniteAutomaton | CFG, n: int, m: int = None) -> NondeterministicFiniteAutomaton | CFG:
+        subautomata : NondeterministicFiniteAutomaton | CFG = deepcopy(nfa)
+        acc = deepcopy(nfa)
+
+        for _ in range (0, n-1):
+            acc = acc.concatenate(subautomata)
+        
+        result = CFG() if isinstance(nfa, CFG) else NondeterministicFiniteAutomaton() if n == 0 else acc
+
+        if m is None:
+            result = result.concatenate(subautomata.kleene_star())
+        else:
+            for _ in range(n, m):
+                acc = acc.concatenate(subautomata)
+                result = result.union(acc)
+
+        print(result)
+        
+        return LCFG(result) if result is CFG else LFiniteAutomata(result)
     
