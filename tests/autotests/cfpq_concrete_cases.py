@@ -58,8 +58,6 @@ class CaseCFPQ:
         actual_res = function(
             cfg_to_rsm(self.query), self.graph, self.start_nodes, self.final_nodes
         )
-        print(actual_res)
-        print(self.expected_answer)
         assert actual_res == self.expected_answer
 
     def __str__(self):
