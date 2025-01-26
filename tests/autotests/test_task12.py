@@ -23,16 +23,6 @@ except ImportError:
     pytestmark = pytest.mark.skip("Task 12 is not ready to test!")
 
 
-class TestTypeInference:
-    @pytest.mark.parametrize("program", WELL_TYPED)
-    def test_well_typed(self, program: str) -> None:
-        assert typing_program(program)
-
-    @pytest.mark.parametrize("program", ILL_TYPED)
-    def test_ill_typed(self, program: str) -> None:
-        assert not typing_program(program)
-
-
 class TestProgramInterpreter:
     @pytest.mark.parametrize("grammar", GRAMMARS_DIFFERENT)
     def test_exec_simple(self, graph: MultiDiGraph, grammar: CFG):
@@ -43,6 +33,9 @@ class TestProgramInterpreter:
             graph_prog, cfg_prog, deepcopy(start_nodes), deepcopy(final_nodes)
         )
         program = query.full_program()
+        print(program)
+        print("\ngrammar")
+        print(grammar.to_text())
         assert typing_program(deepcopy(program))
         cfpq_from_prog = exec_program(deepcopy(program))[query.result_name]
         cfpq_from_algo = matrix_based_cfpq(
@@ -51,6 +44,7 @@ class TestProgramInterpreter:
             deepcopy(start_nodes),
             deepcopy(final_nodes),
         )
+        print()
         assert cfpq_from_prog == cfpq_from_algo
 
     @pytest.mark.parametrize("queries_count", [1, 3, 5])

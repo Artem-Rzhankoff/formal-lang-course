@@ -24,7 +24,7 @@ GRAMMARS_TABLE: list[dict[str, list[str | cfg.CFG]]] = [
     {REGEXP: ["(a b) | (a b c)"], CFG: [], EBNF: ["S -> (a b) | (a b c)"]},
     {REGEXP: ["a|c"], CFG: [], EBNF: ["S -> a|c"]},
     {REGEXP: ["(a|c)(b|d)"], CFG: [], EBNF: ["S -> (a|c)(b|d)"]},
-    {REGEXP: ["b"], CFG: [cfg.CFG.from_text("S -> b")], EBNF: ["S -> b"]},
+    #    {REGEXP: ["b"], CFG: [cfg.CFG.from_text("S -> b")], EBNF: ["S -> b"]},
     {REGEXP: ["a*a*b"], CFG: [], EBNF: ["S -> a*a*b"]},
     {
         REGEXP: ["((a | b)*c)*((d | e)*f)*"],

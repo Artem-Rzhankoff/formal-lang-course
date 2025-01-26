@@ -1,42 +1,48 @@
 import itertools
 
 import scipy as sp
+from copy import deepcopy
+from scipy.sparse import csc_matrix
 from pyformlang.finite_automaton import Symbol
 from pyformlang.finite_automaton import State
 from pyformlang.rsa import Box, RecursiveAutomaton
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
-from pyformlang.cfg import CFG
+from pyformlang.finite_automaton.finite_automaton import to_symbol
+from pyformlang.cfg import CFG, Epsilon, Production, Terminal
+from pyformlang.regular_expression import Regex
+from project.task3 import intersect_automata, AdjacencyMatrixFA, get_edges_from_fa
 from project.task2 import graph_to_nfa
-from project.task3 import intersect_automata
-from project.task3 import AdjacencyMatrixFA
-from typing import Iterable
 
 import networkx as nx
 
 __all__ = ["cfg_to_rsm", "ebnf_to_rsm", "tensor_based_cfpq"]
 
 
+def cfg_to_text(cfg: CFG) -> str:
+    ans = []
+    for prod in cfg.productions:
+        ans.append(
+            str(prod.head) + " -> " + " ".join([str(x.value) for x in prod.body])
+        )
+
+    return "\n".join(ans) + "\n"
+
+
 def cfg_to_rsm(cfg: CFG) -> RecursiveAutomaton:
-    return RecursiveAutomaton.from_text(cfg.to_text())
+    cfg_norm = cfg.to_normal_form()
+    if cfg.generate_epsilon():
+        eps_prod = Production(cfg_norm.start_symbol, [])
+        cfg_norm = CFG(
+            start_symbol=cfg_norm.start_symbol,
+            productions=list(cfg_norm.productions) + [eps_prod],
+        )
+    print("cfg_to_rsm")
+    print(cfg_norm.to_text())
+    return RecursiveAutomaton.from_text(cfg_to_text(cfg_norm), cfg.start_symbol)
 
 
 def ebnf_to_rsm(ebnf: str) -> RecursiveAutomaton:
     return RecursiveAutomaton.from_text(ebnf)
-
-def get_edges_from_fa(
-    fa: NondeterministicFiniteAutomaton,
-) -> set[tuple[State, Symbol, State]]:
-    edges = set()
-    for start_state, links in fa.to_dict().items():
-        for label, end_states in links.items():
-            if not isinstance(end_states, Iterable):
-                edges.add((start_state, label, end_states))
-                continue
-
-            for end_state in end_states:
-                edges.add((start_state, label, end_state))
-
-    return edges
 
 
 def rsm_to_nfa(
@@ -75,9 +81,9 @@ def tensor_based_cfpq(
     final_nodes: set[int] = None,
 ) -> set[tuple[int, int]]:
     def _get_g_delta(
-        _closure: sp.sparse.csc_matrix,
+        _closure: csc_matrix,
         _intersection: AdjacencyMatrixFA,
-    ) -> dict[Symbol, sp.sparse.csc_matrix]:
+    ) -> dict[Symbol, csc_matrix]:
         def _unpack_kron_state(kron_state: State) -> tuple[State, State]:
             return State(kron_state[0]), State(kron_state[1])
 
@@ -86,8 +92,10 @@ def tensor_based_cfpq(
 
         ans: dict[Symbol, sp.sparse.csc_matrix] = {}
         for idx1, idx2 in zip(*_closure.nonzero()):
-            kron_st1, kron_st2 = _intersection.idx_by_state[idx1], _intersection.idx_by_state[idx2]
-            print(kron_st1[0], kron_st1[1])
+            kron_st1, kron_st2 = (
+                _intersection.idx_by_state[idx1],
+                _intersection.idx_by_state[idx2],
+            )
             g_st1, rsm_st1 = _unpack_kron_state(kron_st1)
             g_st2, rsm_st2 = _unpack_kron_state(kron_st2)
 
@@ -96,7 +104,7 @@ def tensor_based_cfpq(
             assert _get_box_label(rsm_st1) == _get_box_label(rsm_st2)
 
             if not (
-                (rsm_matrix.states[rsm_st1] in rsm_matrix.start_states) # инвертируем
+                (rsm_matrix.states[rsm_st1] in rsm_matrix.start_states)  # инвертируем
                 and (rsm_matrix.states[rsm_st2] in rsm_matrix.final_states)
             ):
                 continue
@@ -107,35 +115,32 @@ def tensor_based_cfpq(
                 label not in g_matrix.matricies
                 or not g_matrix.matricies[label][g_idx1, g_idx2]
             ):
-                ans.setdefault(label, sp.sparse.csc_matrix((n, n), dtype=bool))[
+                ans.setdefault(label, csc_matrix((n, n), dtype=bool))[
                     g_idx1, g_idx2
                 ] = True
 
         return ans
 
-    #graph_nfa = graph_to_nfa(graph, start_nodes, final_nodes)
+    # rsm_nfa = rsm_to_nfa(RecursiveAutomaton.from_regex(Regex("a*"), Symbol("S")))
     rsm_nfa = rsm_to_nfa(rsm)
-
     g_matrix = AdjacencyMatrixFA(graph_nfa)
     rsm_matrix = AdjacencyMatrixFA(rsm_nfa)
-
     while True:
         fa_matrix = intersect_automata(g_matrix, rsm_matrix)
-        closure: sp.sparse.csc_matrix = fa_matrix.transitive_closure()
+        closure: csc_matrix = fa_matrix.transitive_closure()
         g_delta = _get_g_delta(closure, fa_matrix)
         if not g_delta:
             break
         g_matrix.update_matricies(g_delta)
 
     start_symbol = rsm.initial_label
+
     if start_symbol in g_matrix.matricies:
         start_m = g_matrix.matricies[start_symbol]
         return {
             (start, final)
             for (start, final) in itertools.product(start_nodes, final_nodes)
-            if start_m[
-                g_matrix.states[State(start)], g_matrix.states[State(final)]
-            ]
+            if start_m[g_matrix.states[State(start)], g_matrix.states[State(final)]]
         }
 
     return set()

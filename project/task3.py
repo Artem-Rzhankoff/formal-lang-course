@@ -1,10 +1,28 @@
 from project.task2 import regex_to_dfa, graph_to_nfa
 import scipy.sparse as sp
+import numpy as np
+import functools
+import operator
 from collections.abc import Iterable
-from pyformlang.finite_automaton import Symbol, NondeterministicFiniteAutomaton
+from pyformlang.finite_automaton import Symbol, NondeterministicFiniteAutomaton, State
 from functools import reduce
 from networkx import MultiDiGraph
 import itertools
+
+def get_edges_from_fa(
+    fa: NondeterministicFiniteAutomaton,
+) -> set[tuple[State, Symbol, State]]:
+    edges = set()
+    for start_state, links in fa.to_dict().items():
+        for label, end_states in links.items():
+            if not isinstance(end_states, Iterable):
+                edges.add((start_state, label, end_states))
+                continue
+
+            for end_state in end_states:
+                edges.add((start_state, label, end_state))
+
+    return edges
 
 
 class AdjacencyMatrixFA:
@@ -25,16 +43,20 @@ class AdjacencyMatrixFA:
         self.states_count = len(self.states)
         self.alphabet = automation.symbols
 
-        graph = automation.to_networkx()
-
+        edges = tuple(zip(*get_edges_from_fa(automation)))
+        column_states, symbols, row_states = ([], [], []) if not edges else edges
         for s in self.alphabet:
-            self.matricies[s] = sp.csr_matrix(
-                (self.states_count, self.states_count), dtype=bool
+            mask = np.equal(list(symbols), s).astype(bool)
+            self.matricies[s] = sp.csc_matrix(
+                (
+                    mask,
+                    (
+                        [self.states[state] for state in list(column_states)],
+                        [self.states[state] for state in list(row_states)]
+                    ),
+                ),
+                shape = (self.states_count, self.states_count)
             )
-
-        for u, v, label in graph.edges(data="label"):
-            if not (str(u).startswith("starting_") or str(v).startswith("starting_")):
-                self.matricies[label][self.states[u], self.states[v]] = True
 
         self.start_states = {self.states[key] for key in automation.start_states}
         self.final_states = {self.states[key] for key in automation.final_states}
@@ -65,23 +87,18 @@ class AdjacencyMatrixFA:
 
         return True
 
-    def transitive_closure(self):
-        reach = sp.csr_matrix((self.states_count, self.states_count), dtype=bool)
-        reach.setdiag(True)
+    def transitive_closure(self) -> sp.csc_matrix:
+        n = self.states_count
+        matrices = list(self.matricies.values())
 
-        if not self.matricies:
-            return reach
-
-        reach: sp.csr_matrix = reach + reduce(
-            lambda x, y: x + y, self.matricies.values()
+        common_matrix = sp.csc_matrix(
+            (np.ones(n, dtype=bool), (range(n), range(n))), shape=(n, n)
         )
 
-        for k in range(self.states_count):
-            for i in range(self.states_count):
-                for j in range(self.states_count):
-                    reach[i, j] = reach[i, j] or (reach[i, k] and reach[k, j])
-
-        return reach
+        return (
+            functools.reduce(operator.add, matrices, common_matrix)
+            ** n
+        )
     
     def update_matricies(self, delta: dict[Symbol, sp.csc_matrix]):
         for var, matrix in delta.items():
@@ -104,7 +121,7 @@ def intersect_automata(
     for k in A1.keys():
         if A2.get(k) is None:
             continue
-        intersect.matricies[k] = sp.kron(A1[k], A2[k], format="csr")
+        intersect.matricies[k] = sp.kron(A1[k], A2[k], format="csc")
 
     intersect.states = {
         (i1, i2): (
