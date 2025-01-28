@@ -4,6 +4,7 @@ from pyformlang.finite_automaton import NondeterministicFiniteAutomaton, State, 
 from pyformlang.regular_expression import Regex
 from project.task2 import regex_to_dfa
 from project.task3 import intersect_automata, AdjacencyMatrixFA
+
 NFA = NondeterministicFiniteAutomaton
 
 
@@ -63,14 +64,18 @@ class LAutomata:
 class LCFG(LAutomata, ABC):
     VAR_PREFIX = "VAR#"
 
-    def __init__(self, cfg: CFG, from_var = False):
+    def __init__(self, cfg: CFG, from_var=False):
         self._grammar = cfg
         self.from_var = from_var
 
     @property
     def grammar(self) -> CFG:
         def is_eps_prod_from_st(production: Production):
-            return production.head == self._grammar.start_symbol and len(production.body) == 0
+            return (
+                production.head == self._grammar.start_symbol
+                and len(production.body) == 0
+            )
+
         productions = [
             prod
             for prod in self._grammar.productions
@@ -107,15 +112,16 @@ class LCFG(LAutomata, ABC):
         elif isinstance(second, LFiniteAutomata):
             second_regex: Regex = second.nfa.to_regex()
             return LCFG(self.grammar.concatenate(second_regex.to_cfg()))
-    
+
     def get_internal_expr(self):
         return self.grammar
-        
+
     def add_start_symbol(self, start_symbol: str):
         start_var = Variable(start_symbol)
         start_production = Production(start_var, [self._grammar.start_symbol])
         self._grammar = CFG(
-            start_symbol=Variable(start_symbol), productions=list(self._grammar.productions) + [start_production]
+            start_symbol=Variable(start_symbol),
+            productions=list(self._grammar.productions) + [start_production],
         )
 
     def merge_grammars(self, grammars: list[CFG]) -> "LCFG":
@@ -133,12 +139,17 @@ class LCFG(LAutomata, ABC):
     def _get_grammar_with_renamed_nonterms(cls, grammar: CFG) -> CFG:
         productions = grammar.productions
         start_symbol_str = str(grammar.start_symbol.value)
+
         def prepare(production: Production) -> Production:
             body = []
             for symbol in production.body:
                 if symbol in grammar.variables:
                     body.append(
-                        Variable(cls._get_var_name_from_nonterm(start_symbol_str, str(symbol.value)))
+                        Variable(
+                            cls._get_var_name_from_nonterm(
+                                start_symbol_str, str(symbol.value)
+                            )
+                        )
                     )
                 else:
                     body.append(symbol)
@@ -178,7 +189,7 @@ class LFiniteAutomata(LAutomata, ABC):
     @classmethod
     def from_string(fa_class, regex: str):
         return fa_class(regex_to_dfa(regex))
-    
+
     def union(self, second):
         if isinstance(second, LFiniteAutomata):
             return LFiniteAutomata(self.nfa.union(second.nfa))
@@ -193,10 +204,8 @@ class LFiniteAutomata(LAutomata, ABC):
         if isinstance(second, LFiniteAutomata):
             return LFiniteAutomata(self.nfa.concatenate(second.nfa))
 
-        return LCFG(
-            self.nfa.to_regex().to_cfg().concatenate(second.grammar)
-        )
-    
+        return LCFG(self.nfa.to_regex().to_cfg().concatenate(second.grammar))
+
     def get_internal_expr(self):
         return self.nfa
 
@@ -229,7 +238,9 @@ class LFiniteAutomata(LAutomata, ABC):
     def _init_state(self, state: State):
         self.nfa.add_start_state(state)
         self.nfa.add_final_state(state)
-    
+
     def _intersect_nfa(self, first: NFA, second: NFA) -> NFA:
-        intersect = intersect_automata(AdjacencyMatrixFA(first), AdjacencyMatrixFA(second))
+        intersect = intersect_automata(
+            AdjacencyMatrixFA(first), AdjacencyMatrixFA(second)
+        )
         return intersect.automation
