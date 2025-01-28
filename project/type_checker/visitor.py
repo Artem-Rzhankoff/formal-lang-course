@@ -28,27 +28,28 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
     def visitAdd(self, ctx):
         graph_name = ctx.VAR().getText()
         type = self.env.get(graph_name)
-        self._check_types_consistency(type, Type.GRAPH)
+        self._check_types_consistency(type, Type.GRAPH, f"Variable '{graph_name}' must be of type GRAPH to add elements.")
 
         item_type = self.visitExpr(ctx.expr())
         adding_type = ctx.children[1].getText()
 
         expected_item_type = Type.NUM if adding_type == "vertex" else Type.EDGE
-        self._check_types_consistency(item_type, expected_item_type)
+        self._check_types_consistency(item_type, expected_item_type, 
+                                     f"Cannot add {item_type} as a {adding_type}. Expected {expected_item_type}.")
 
         return Type.VOID
     
     def visitRemove(self, ctx):
         graph_name = ctx.VAR().getText()
-        type = self.env.get(graph_name) # ??
-        self._check_types_consistency(type, Type.GRAPH)
+        type = self.env.get(graph_name)
+        self._check_types_consistency(type, Type.GRAPH, f"Variable '{graph_name}' must be of type GRAPH to remove elements.")
 
         item_type = self.visitExpr(ctx.expr())
         remove_type = ctx.children[1].getText()
         expected_item_type = Type.NUM if remove_type == "vertex" else Type.EDGE if remove_type == "edge" else Type.SET if remove_type == "vertices" else None
         if expected_item_type is not None:
-            self._check_types_consistency(item_type, expected_item_type)
-        
+            self._check_types_consistency(item_type, expected_item_type, 
+                                         f"Cannot remove {item_type} as a {remove_type}. Expected {expected_item_type}.")
 
         return Type.VOID
     
@@ -69,7 +70,7 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
         elif ctx.select():
             return self.visitSelect(ctx.select())
         else:
-            raise ValueError("Unsupported expression type")
+            raise ValueError("Unsupported expression type.")
         
     def visitEdge_expr(self, ctx):
         types = [self.visitExpr(expr) for expr in ctx.expr()]
@@ -77,17 +78,18 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
 
         for i in range(len(types)):
             try:
-                self._check_types_consistency(types[i], expected_types[i])
+                self._check_types_consistency(types[i], expected_types[i], 
+                                             f"Edge expression part {i + 1} must be of type {expected_types[i]}, but got {types[i]}.")
             except ValueError:
-                raise ValueError()
+                raise ValueError("Invalid edge expression. Expected types: NUM, CHAR, NUM.")
         
         return Type.EDGE
     
     def visitSet_expr(self, ctx):
-        # наш язык исключает любые другие типы
+        # Our language excludes any other types
         for expr in ctx.expr():
             if self.visitExpr(expr) != Type.NUM:
-                raise ValueError()
+                raise ValueError("Set expressions can only contain NUM types.")
         
         return Type.SET
     
@@ -105,29 +107,35 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
             elif type == Type.FA or type == Type.CHAR:
                 return Type.FA
             
-            raise ValueError()
+            raise ValueError(f"Variable '{var_name}' must be of type CFG, FA, or CHAR in regular expressions.")
         elif ctx.getChild(0).getText() == "(":
             return self.visitRegexpr(ctx.regexpr(0))
         elif ctx.getChild(1).getText() == self.RANGE_OPERATOR:
             expr_type = self.visitRegexpr(ctx.regexpr(0))
             range_type = self.visitRange(ctx.range_())
 
-            self._check_types_consistency_multi(expr_type, [Type.FA, Type.CFG, Type.CHAR])
-            self._check_types_consistency(range_type, Type.RANGE)
+            self._check_types_consistency_multi(expr_type, [Type.FA, Type.CFG, Type.CHAR], 
+                                               f"Range operator requires FA, CFG, or CHAR, but got {expr_type}.")
+            self._check_types_consistency(range_type, Type.RANGE, 
+                                          f"Range operator must be applied to a RANGE type, but got {range_type}.")
             return expr_type
         elif ctx.getChild(1).getText() in [self.CONCAT_OPERATOR, self.UNION_OPERATOR]:
             first_type = self.visitRegexpr(ctx.regexpr(0))
             second_type = self.visitRegexpr(ctx.regexpr(1))
-            self._check_types_consistency_multi(first_type, [Type.FA, Type.CFG, Type.CHAR])
-            self._check_types_consistency_multi(second_type, [Type.FA, Type.CFG, Type.CHAR])
+            self._check_types_consistency_multi(first_type, [Type.FA, Type.CFG, Type.CHAR], 
+                                               f"First operand must be FA, CFG, or CHAR, but got {first_type}.")
+            self._check_types_consistency_multi(second_type, [Type.FA, Type.CFG, Type.CHAR], 
+                                               f"Second operand must be FA, CFG, or CHAR, but got {second_type}.")
             return Type.CFG if Type.CFG in [first_type, second_type] else Type.FA
         else:
             first_type = self.visitRegexpr(ctx.regexpr(0))
             second_type = self.visitRegexpr(ctx.regexpr(1))
-            self._check_types_consistency_multi(first_type, [Type.FA, Type.CFG])
-            self._check_types_consistency_multi(second_type, [Type.FA, Type.CFG])
+            self._check_types_consistency_multi(first_type, [Type.FA, Type.CFG], 
+                                               f"First operand must be FA or CFG, but got {first_type}.")
+            self._check_types_consistency_multi(second_type, [Type.FA, Type.CFG], 
+                                               f"Second operand must be FA or CFG, but got {second_type}.")
             if first_type == Type.CFG and second_type == Type.CFG:
-                raise ValueError()
+                raise ValueError("Cannot perform operation on two CFG types.")
             return Type.CFG if Type.CFG in [first_type, second_type] else Type.FA
         
     def visitRange(self, ctx):
@@ -137,7 +145,8 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
         var_name = ctx.VAR().getText()
 
         type = self.visitExpr(ctx.expr())
-        self._check_types_consistency(type, Type.SET)
+        self._check_types_consistency(type, Type.SET, 
+                                     f"Filter expression must be of type SET, but got {type}.")
 
         return Type.VOID
     
@@ -152,22 +161,23 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
         start_var = ctx.VAR(2 + diff).getText()
         graph_name = ctx.VAR(3 + diff).getText()
 
-        self._check_types_consistency(self.env.get(graph_name), Type.GRAPH)
+        self._check_types_consistency(self.env.get(graph_name), Type.GRAPH, 
+                                     f"Variable '{graph_name}' must be of type GRAPH for selection.")
 
         result_var1 = ctx.VAR(0).getText()
         result_var2 = ctx.VAR(1).getText() if len(ctx.VAR()) > 4 else None
 
         grammar_type = self.visitExpr(ctx.expr())
-        self._check_types_consistency_multi(grammar_type, [Type.CHAR, Type.FA, Type.CFG])
+        self._check_types_consistency_multi(grammar_type, [Type.CHAR, Type.FA, Type.CFG], 
+                                           f"Grammar expression must be CHAR, FA, or CFG, but got {grammar_type}.")
 
         return Type.SET if result_var2 is None else Type.SET_TUPLES
 
 
-    def _check_types_consistency(self, actual: Type, expected: Type):
+    def _check_types_consistency(self, actual: Type, expected: Type, error_message: str = None):
         if actual != expected:
-            raise ValueError()
+            raise ValueError(error_message or f"Type mismatch. Expected {expected}, but got {actual}.")
         
-    def _check_types_consistency_multi(self, actual: Type, expected: list[Type]):
+    def _check_types_consistency_multi(self, actual: Type, expected: list[Type], error_message: str = None):
         if not any(actual == exp for exp in expected):
-            raise ValueError()
-
+            raise ValueError(error_message or f"Type mismatch. Expected one of {expected}, but got {actual}.")
