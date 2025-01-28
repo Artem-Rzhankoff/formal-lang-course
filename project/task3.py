@@ -9,6 +9,7 @@ from functools import reduce
 from networkx import MultiDiGraph
 import itertools
 
+
 def get_edges_from_fa(
     fa: NondeterministicFiniteAutomaton,
 ) -> set[tuple[State, Symbol, State]]:
@@ -52,10 +53,10 @@ class AdjacencyMatrixFA:
                     mask,
                     (
                         [self.states[state] for state in list(column_states)],
-                        [self.states[state] for state in list(row_states)]
+                        [self.states[state] for state in list(row_states)],
                     ),
                 ),
-                shape = (self.states_count, self.states_count)
+                shape=(self.states_count, self.states_count),
             )
 
         self.start_states = {self.states[key] for key in automation.start_states}
@@ -95,11 +96,8 @@ class AdjacencyMatrixFA:
             (np.ones(n, dtype=bool), (range(n), range(n))), shape=(n, n)
         )
 
-        return (
-            functools.reduce(operator.add, matrices, common_matrix)
-            ** n
-        )
-    
+        return functools.reduce(operator.add, matrices, common_matrix) ** n
+
     def update_matricies(self, delta: dict[Symbol, sp.csc_matrix]):
         for var, matrix in delta.items():
             if var in self.matricies:
@@ -132,7 +130,6 @@ def intersect_automata(
         )
     }
     intersect.idx_by_state = {i: st for st, i in intersect.states.items()}
-
 
     intersect.start_states = [
         (s1 * automaton2.states_count + s2)

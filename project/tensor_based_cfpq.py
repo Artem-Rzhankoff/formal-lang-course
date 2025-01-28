@@ -53,7 +53,9 @@ def rsm_to_nfa(rsm: RecursiveAutomaton) -> NondeterministicFiniteAutomaton:
         for final in box.final_states:
             final_states.add(create_state(symbol, final))
 
-    nfa = NondeterministicFiniteAutomaton(start_state=start_states, final_states=final_states)
+    nfa = NondeterministicFiniteAutomaton(
+        start_state=start_states, final_states=final_states
+    )
     nfa.add_transitions(transitions)
     return nfa
 
@@ -64,7 +66,9 @@ def tensor_based_cfpq(
     start_nodes: set[int] = None,
     final_nodes: set[int] = None,
 ) -> set[tuple[int, int]]:
-    def get_graph_delta(closure: csc_matrix, intersection: AdjacencyMatrixFA) -> dict[Symbol, csc_matrix]:
+    def get_graph_delta(
+        closure: csc_matrix, intersection: AdjacencyMatrixFA
+    ) -> dict[Symbol, csc_matrix]:
         def unpack_state(state: State) -> tuple[State, State]:
             return State(state[0]), State(state[1])
 
@@ -73,22 +77,35 @@ def tensor_based_cfpq(
 
         delta = {}
         for idx1, idx2 in zip(*closure.nonzero()):
-            state1, state2 = intersection.idx_by_state[idx1], intersection.idx_by_state[idx2]
+            state1, state2 = (
+                intersection.idx_by_state[idx1],
+                intersection.idx_by_state[idx2],
+            )
             graph_state1, rsm_state1 = unpack_state(state1)
             graph_state2, rsm_state2 = unpack_state(state2)
 
-            graph_idx1, graph_idx2 = graph_matrix.states[graph_state1], graph_matrix.states[graph_state2]
+            graph_idx1, graph_idx2 = (
+                graph_matrix.states[graph_state1],
+                graph_matrix.states[graph_state2],
+            )
 
             assert get_label(rsm_state1) == get_label(rsm_state2)
 
-            if not (rsm_matrix.states[rsm_state1] in rsm_matrix.start_states and
-                    rsm_matrix.states[rsm_state2] in rsm_matrix.final_states):
+            if not (
+                rsm_matrix.states[rsm_state1] in rsm_matrix.start_states
+                and rsm_matrix.states[rsm_state2] in rsm_matrix.final_states
+            ):
                 continue
 
             label = get_label(rsm_state1)
             n = len(graph_matrix.states)
-            if label not in graph_matrix.matricies or not graph_matrix.matricies[label][graph_idx1, graph_idx2]:
-                delta.setdefault(label, csc_matrix((n, n), dtype=bool))[graph_idx1, graph_idx2] = True
+            if (
+                label not in graph_matrix.matricies
+                or not graph_matrix.matricies[label][graph_idx1, graph_idx2]
+            ):
+                delta.setdefault(label, csc_matrix((n, n), dtype=bool))[
+                    graph_idx1, graph_idx2
+                ] = True
 
         return delta
 
@@ -111,7 +128,9 @@ def tensor_based_cfpq(
         return {
             (start, final)
             for start, final in itertools.product(start_nodes, final_nodes)
-            if start_matrix[graph_matrix.states[State(start)], graph_matrix.states[State(final)]]
+            if start_matrix[
+                graph_matrix.states[State(start)], graph_matrix.states[State(final)]
+            ]
         }
 
     return set()

@@ -9,7 +9,6 @@ else:
 
 # This class defines a complete listener for a parse tree produced by GraphLanguageParser.
 class GraphLanguageListener(ParseTreeListener):
-
     # Enter a parse tree produced by GraphLanguageParser#program.
     def enterProgram(self, ctx: GraphLanguageParser.ProgramContext):
         pass

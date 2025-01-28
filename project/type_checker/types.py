@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class Type(Enum):
     GRAPH = 1
     FA = 2
@@ -12,13 +13,14 @@ class Type(Enum):
     RANGE = 9
     VOID = 10
 
+
 class TypeEnviroment:
     def __init__(self):
         self.vars: dict[str, Type] = {}
-    
+
     def __contains__(self, item: str):
         return item in self.vars
-    
+
     def add(self, var_name: str, var_type: Type):
         self.vars[var_name] = var_type
 
@@ -26,4 +28,3 @@ class TypeEnviroment:
         if var_name not in self.vars:
             raise ValueError()
         return self.vars[var_name]
-    

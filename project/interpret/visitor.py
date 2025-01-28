@@ -7,6 +7,7 @@ from project.GraphLanguageVisitor import GraphLanguageVisitor
 from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
 from project.tensor_based_cfpq import cfg_to_rsm, tensor_based_cfpq
 from copy import deepcopy
+
 NFA = NondeterministicFiniteAutomaton
 
 
@@ -95,7 +96,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
             var = env[var_name]
             if isinstance(var, LCFG):
                 nonterms = self._get_grammar_nonterm_names(var_name, set())
-                print('\n\n')
+                print("\n\n")
                 grammars: list[CFG] = [
                     get_cfg_from_env(nonterm) for nonterm in nonterms
                 ]
@@ -153,7 +154,9 @@ class InterpreterVisitor(GraphLanguageVisitor):
             return tuple(n)
         m = int(ctx.NUM(1).getText()) if ctx.NUM(1) else None
         if m is not None and m < n:
-            raise ValueError("Invalid range: end value must be greater than or equal to start value")
+            raise ValueError(
+                "Invalid range: end value must be greater than or equal to start value"
+            )
 
         return n, m
 
@@ -203,9 +206,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         if final_var in filters.keys():
             final_nodes = filters[final_var].items
 
-        nfa: NFA = self.envs[-1][
-            graph_name
-        ].nfa
+        nfa: NFA = self.envs[-1][graph_name].nfa
         for st in start_nodes:
             nfa.add_start_state(st)
         for fn in final_nodes:
@@ -220,9 +221,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif isinstance(grammar_expr, LCFG):
             rsm = cfg_to_rsm(grammar_expr.grammar)
         elif isinstance(grammar_expr, str):
-            rsm = RecursiveAutomaton.from_regex(
-                Regex(grammar_expr), Symbol("S")
-            )
+            rsm = RecursiveAutomaton.from_regex(Regex(grammar_expr), Symbol("S"))
 
         cfpq_result = tensor_based_cfpq(rsm, nfa, start_nodes, final_nodes)
 
@@ -231,7 +230,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         else:
             idx = return_vars[0][1]
             return set([el[idx] for el in cfpq_result])
-        
+
     def _get_grammar_nonterm_names(self, cur_grammar_name: str, acc: set[str]):
         expr = self.envs[-1][cur_grammar_name]
         acc.add(cur_grammar_name)
@@ -245,7 +244,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
                 if name not in acc:
                     acc = self._get_grammar_nonterm_names(name, acc)
         return acc
-    
+
     def _apply_range_to_expr(self, expr: NFA | CFG, n: int, m: int = None) -> NFA | CFG:
         subautomata = deepcopy(expr)
         acc = deepcopy(expr)
@@ -253,7 +252,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         for _ in range(0, n - 1):
             acc = acc.concatenate(subautomata)
 
-        result = (self._get_empty_expr(expr) if n == 0 else acc)
+        result = self._get_empty_expr(expr) if n == 0 else acc
 
         if m is None:
             result = result.concatenate(subautomata.kleene_star())
@@ -263,10 +262,13 @@ class InterpreterVisitor(GraphLanguageVisitor):
                 result = result.union(acc)
 
         return LCFG(result) if isinstance(result, CFG) else LFiniteAutomata(result)
-    
+
     def _get_empty_expr(self, processed_expr: NFA | CFG) -> NFA:
         if isinstance(processed_expr, NFA):
             state = State(0)
             return NFA(start_state=[state], final_states=[state])
         else:
-            return CFG(start_symbol=processed_expr.start_symbol, productions=[Production(processed_expr.start_symbol, [])])
+            return CFG(
+                start_symbol=processed_expr.start_symbol,
+                productions=[Production(processed_expr.start_symbol, [])],
+            )
