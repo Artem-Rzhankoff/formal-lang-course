@@ -189,8 +189,6 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
         return Type.RANGE
 
     def visitV_filter(self, ctx):
-        var_name = ctx.VAR().getText()
-
         type = self.visitExpr(ctx.expr())
         self._check_types_consistency(
             type, Type.SET, f"Filter expression must be of type SET, but got {type}."
@@ -205,8 +203,6 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
 
         diff = 1 if len(ctx.VAR()) > 4 else 0
 
-        final_var = ctx.VAR(1 + diff).getText()
-        start_var = ctx.VAR(2 + diff).getText()
         graph_name = ctx.VAR(3 + diff).getText()
 
         self._check_types_consistency(
@@ -215,7 +211,6 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
             f"Variable '{graph_name}' must be of type GRAPH for selection.",
         )
 
-        result_var1 = ctx.VAR(0).getText()
         result_var2 = ctx.VAR(1).getText() if len(ctx.VAR()) > 4 else None
 
         grammar_type = self.visitExpr(ctx.expr())
