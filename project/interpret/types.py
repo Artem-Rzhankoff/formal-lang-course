@@ -3,7 +3,8 @@ from pyformlang.cfg import CFG, Production, Variable
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton, State, Symbol
 from pyformlang.regular_expression import Regex
 from project.task2 import regex_to_dfa
-from project.interpret.utils import intersect_nfa
+from project.task3 import intersect_automata, AdjacencyMatrixFA
+NFA = NondeterministicFiniteAutomaton
 
 
 class LSet:
@@ -56,7 +57,7 @@ class LAutomata:
     def concat(self, second: "LAutomata") -> "LAutomata": ...
 
     @abstractmethod
-    def get_internal_expr(self) -> CFG | NondeterministicFiniteAutomaton: ...
+    def get_internal_expr(self) -> CFG | NFA: ...
 
 
 class LCFG(LAutomata, ABC):
@@ -185,7 +186,7 @@ class LFiniteAutomata(LAutomata, ABC):
 
     def intersect(self, second):
         if isinstance(second, LFiniteAutomata):
-            return LFiniteAutomata(intersect_nfa(self.nfa, second.nfa))
+            return LFiniteAutomata(self._intersect_nfa(self.nfa, second.nfa))
         return second.intersect(self)
 
     def concat(self, second):
@@ -210,7 +211,6 @@ class LFiniteAutomata(LAutomata, ABC):
         return LSet({state.value for state in self.nfa.symbols})
 
     def add_edge(self, edge: LTriple):
-        NondeterministicFiniteAutomaton.from_networkx
         start_state = State(edge.start)
         final_state = State(edge.final)
         self._init_state(edge.start)
@@ -229,3 +229,7 @@ class LFiniteAutomata(LAutomata, ABC):
     def _init_state(self, state: State):
         self.nfa.add_start_state(state)
         self.nfa.add_final_state(state)
+    
+    def _intersect_nfa(self, first: NFA, second: NFA) -> NFA:
+        intersect = intersect_automata(AdjacencyMatrixFA(first), AdjacencyMatrixFA(second))
+        return intersect.automation

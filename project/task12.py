@@ -13,7 +13,6 @@ def exec_program(program: str) -> dict[str, set[tuple]]:
     interpreter_visitor.visitProgram(tree[0])
 
     vars = interpreter_visitor.envs[-1]
-    print(vars)
     return {
         name: value
         for name, value in vars.items()
