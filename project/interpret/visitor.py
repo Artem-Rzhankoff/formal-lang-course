@@ -45,7 +45,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         var = self.envs[-1][var_name]
 
         if not isinstance(var, LFiniteAutomata):
-            raise TypeError("Граф тоже не верно указан")
+            raise TypeError("Graph is not specified correctly")
 
         if adding_type == "vertex":
             var.add_vertex(item_to_add)
@@ -56,10 +56,10 @@ class InterpreterVisitor(GraphLanguageVisitor):
         remove_type = ctx.children[1].getText()
         item_to_remove = self.visit(ctx.expr())
         var_name = ctx.VAR().getText()
-        var = self.envs[-1][var_name]=
+        var = self.envs[-1][var_name]
 
         if not isinstance(var, LFiniteAutomata):
-            raise TypeError("Граф не верно указан")
+            raise TypeError("Graph is not specified correctly")
 
         if remove_type == "vertex":
             var.remove_vertex(item_to_remove)
@@ -110,7 +110,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif ctx.select():
             return self.visitSelect(ctx.select())
         else:
-            raise Exception()
+            raise ValueError("Unsupported expression type")
 
     def get_grammar_nonterm_names(self, cur_grammar_name: str, acc: set[str]):
         expr = self.envs[-1][cur_grammar_name]
@@ -182,7 +182,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif isinstance(values, int):
             values = LSet(list(values))
         else:
-            raise Exception()
+            raise ValueError("Unsupported value type for filter")
 
         return (var_name, values)
 
