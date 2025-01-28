@@ -90,8 +90,6 @@ class InterpreterVisitor(GraphLanguageVisitor):
             var = env[var_name]
             if isinstance(var, LCFG):
                 nonterms = self.get_grammar_nonterm_names(var_name, set())
-                print(self.envs[-1]['s211'].grammar.variables)
-                print(self.envs[-1]['s113'].grammar.variables)
                 print('\n\n')
                 grammars: list[CFG] = [
                     get_cfg_from_env(nonterm) for nonterm in nonterms
@@ -114,9 +112,9 @@ class InterpreterVisitor(GraphLanguageVisitor):
         acc.add(cur_grammar_name)
         if isinstance(expr, LCFG):
             var_names = [
-                str(var.value).removeprefix(LCFG.var_prefix).split("#")[0]
+                str(var.value).removeprefix(LCFG.VAR_PREFIX).split("#")[0]
                 for var in expr.grammar.variables
-                if str(var.value).startswith(LCFG.var_prefix)
+                if str(var.value).startswith(LCFG.VAR_PREFIX)
             ]
             for name in var_names:
                 if name not in acc:

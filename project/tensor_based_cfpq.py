@@ -1,17 +1,13 @@
 import itertools
 
 import scipy as sp
-from copy import deepcopy
 from scipy.sparse import csc_matrix
 from pyformlang.finite_automaton import Symbol
 from pyformlang.finite_automaton import State
 from pyformlang.rsa import Box, RecursiveAutomaton
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
-from pyformlang.finite_automaton.finite_automaton import to_symbol
-from pyformlang.cfg import CFG, Epsilon, Production, Terminal
-from pyformlang.regular_expression import Regex
+from pyformlang.cfg import CFG, Production
 from project.task3 import intersect_automata, AdjacencyMatrixFA, get_edges_from_fa
-from project.task2 import graph_to_nfa
 
 import networkx as nx
 
@@ -36,8 +32,6 @@ def cfg_to_rsm(cfg: CFG) -> RecursiveAutomaton:
             start_symbol=cfg_norm.start_symbol,
             productions=list(cfg_norm.productions) + [eps_prod],
         )
-    print("cfg_to_rsm")
-    print(cfg_norm.to_text())
     return RecursiveAutomaton.from_text(cfg_to_text(cfg_norm), cfg.start_symbol)
 
 
