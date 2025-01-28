@@ -33,9 +33,6 @@ class TestProgramInterpreter:
             graph_prog, cfg_prog, deepcopy(start_nodes), deepcopy(final_nodes)
         )
         program = query.full_program()
-        print(program)
-        print("\ngrammar")
-        print(grammar.to_text())
         assert typing_program(deepcopy(program))
         cfpq_from_prog = exec_program(deepcopy(program))[query.result_name]
         cfpq_from_algo = matrix_based_cfpq(
@@ -44,7 +41,6 @@ class TestProgramInterpreter:
             deepcopy(start_nodes),
             deepcopy(final_nodes),
         )
-        print()
         assert cfpq_from_prog == cfpq_from_algo
 
     @pytest.mark.parametrize("queries_count", [1, 3, 5])
@@ -71,7 +67,7 @@ class TestProgramInterpreter:
             query_full_program = query.full_program()
             assert typing_program(deepcopy(query_full_program))
             separate_res = exec_program(deepcopy(query_full_program))
-            assert separate_res == res
+            assert separate_res[var] == res
             assert res == matrix_based_cfpq(
                 query.get_grammar(),
                 query.get_graph(),
