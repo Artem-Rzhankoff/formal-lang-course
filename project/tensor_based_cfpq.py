@@ -1,8 +1,7 @@
 import itertools
-import scipy as sp
 from scipy.sparse import csc_matrix
 from pyformlang.finite_automaton import Symbol, State
-from pyformlang.rsa import Box, RecursiveAutomaton
+from pyformlang.rsa import RecursiveAutomaton
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
 from pyformlang.cfg import CFG, Production
 from project.task3 import intersect_automata, AdjacencyMatrixFA, get_edges_from_fa

@@ -30,7 +30,7 @@ class LSet:
 
 class LTriple:
     def __init__(self, start, label, final):
-        if type(start) != type(final):
+        if start is not type(final):
             raise TypeError("Start and final must be of the same type")
         self.start = start
         self.label = label

@@ -5,7 +5,6 @@ import functools
 import operator
 from collections.abc import Iterable
 from pyformlang.finite_automaton import Symbol, NondeterministicFiniteAutomaton, State
-from functools import reduce
 from networkx import MultiDiGraph
 import itertools
 
