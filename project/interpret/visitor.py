@@ -94,7 +94,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
             var_name = ctx.getText()
             var = env[var_name]
             if isinstance(var, LCFG):
-                nonterms = self.get_grammar_nonterm_names(var_name, set())
+                nonterms = self._get_grammar_nonterm_names(var_name, set())
                 print('\n\n')
                 grammars: list[CFG] = [
                     get_cfg_from_env(nonterm) for nonterm in nonterms
@@ -111,20 +111,6 @@ class InterpreterVisitor(GraphLanguageVisitor):
             return self.visitSelect(ctx.select())
         else:
             raise ValueError("Unsupported expression type")
-
-    def get_grammar_nonterm_names(self, cur_grammar_name: str, acc: set[str]):
-        expr = self.envs[-1][cur_grammar_name]
-        acc.add(cur_grammar_name)
-        if isinstance(expr, LCFG):
-            var_names = [
-                str(var.value).removeprefix(LCFG.VAR_PREFIX).split("#")[0]
-                for var in expr.grammar.variables
-                if str(var.value).startswith(LCFG.VAR_PREFIX)
-            ]
-            for name in var_names:
-                if name not in acc:
-                    acc = self.get_grammar_nonterm_names(name, acc)
-        return acc
 
     def visitEdge_expr(self, ctx):
         return LTriple(
@@ -245,6 +231,20 @@ class InterpreterVisitor(GraphLanguageVisitor):
         else:
             idx = return_vars[0][1]
             return set([el[idx] for el in cfpq_result])
+        
+    def _get_grammar_nonterm_names(self, cur_grammar_name: str, acc: set[str]):
+        expr = self.envs[-1][cur_grammar_name]
+        acc.add(cur_grammar_name)
+        if isinstance(expr, LCFG):
+            var_names = [
+                str(var.value).removeprefix(LCFG.VAR_PREFIX).split("#")[0]
+                for var in expr.grammar.variables
+                if str(var.value).startswith(LCFG.VAR_PREFIX)
+            ]
+            for name in var_names:
+                if name not in acc:
+                    acc = self._get_grammar_nonterm_names(name, acc)
+        return acc
     
     def _apply_range_to_expr(self, expr: NFA | CFG, n: int, m: int = None) -> NFA | CFG:
         subautomata = deepcopy(expr)

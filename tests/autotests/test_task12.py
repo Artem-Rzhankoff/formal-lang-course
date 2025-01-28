@@ -23,6 +23,16 @@ except ImportError:
     pytestmark = pytest.mark.skip("Task 12 is not ready to test!")
 
 
+class TestTypeInference:
+    @pytest.mark.parametrize("program", WELL_TYPED)
+    def test_well_typed(self, program: str) -> None:
+        assert typing_program(program)
+
+    @pytest.mark.parametrize("program", ILL_TYPED)
+    def test_ill_typed(self, program: str) -> None:
+        assert not typing_program(program)
+
+
 class TestProgramInterpreter:
     @pytest.mark.parametrize("grammar", GRAMMARS_DIFFERENT)
     def test_exec_simple(self, graph: MultiDiGraph, grammar: CFG):

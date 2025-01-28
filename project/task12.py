@@ -1,9 +1,16 @@
 from project.task11 import program_to_tree
 from project.interpret.visitor import InterpreterVisitor
+from project.type_checker.visitor import TypeCheckerVisitor
 
 
 def typing_program(program: str) -> bool:
-    return True
+    tree = program_to_tree(program)
+    type_checker_visitor = TypeCheckerVisitor()
+    try:
+        type_checker_visitor.visitProgram(tree[0])
+        return True
+    except ValueError:
+        return False
 
 
 def exec_program(program: str) -> dict[str, set[tuple]]:
