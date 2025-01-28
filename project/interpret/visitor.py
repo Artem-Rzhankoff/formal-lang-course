@@ -1,16 +1,21 @@
-from antlr4 import ParserRuleContext
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton, Symbol, State
 from pyformlang.regular_expression import Regex
 from pyformlang.rsa import RecursiveAutomaton
-from pyformlang.cfg import CFG, Variable, Epsilon, Production, Terminal
+from pyformlang.cfg import CFG, Variable, Production, Terminal
 
 from project.GraphLanguageVisitor import GraphLanguageVisitor
 from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
 from project.tensor_based_cfpq import cfg_to_rsm, tensor_based_cfpq
 from copy import deepcopy
+NFA = NondeterministicFiniteAutomaton
 
 
 class InterpreterVisitor(GraphLanguageVisitor):
+    UNION_OPERATOR = "|"
+    CONCAT_OPERATOR = "."
+    INTERSECT_OPERATOR = "&"
+    RANGE_OPERATOR = "^"
+
     def __init__(self):
         self.envs = [{}]
         self.query_results = {}
@@ -23,7 +28,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
 
     def visitDeclare(self, ctx):
         var = ctx.VAR().getText()
-        value = NondeterministicFiniteAutomaton()
+        value = NFA()
         self.set_var(var, LFiniteAutomata(value))
 
     def visitBind(self, ctx):
@@ -51,7 +56,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         remove_type = ctx.children[1].getText()
         item_to_remove = self.visit(ctx.expr())
         var_name = ctx.VAR().getText()
-        var = self.envs[-1][var_name]  # должен быть графом
+        var = self.envs[-1][var_name]=
 
         if not isinstance(var, LFiniteAutomata):
             raise TypeError("Граф не верно указан")
@@ -133,27 +138,25 @@ class InterpreterVisitor(GraphLanguageVisitor):
     def visitRegexpr(self, ctx):
         if ctx.CHAR():
             return LFiniteAutomata.from_string(ctx.getText())
-        elif (
-            ctx.VAR()
-        ):  # еще нельзя допускать правила вида A -> A, левую рекурсию короче
+        elif ctx.VAR():
             var = ctx.getText()
             return LCFG.from_var(var)
         elif ctx.getChild(0).getText() == "(":
             return self.visit(ctx.regexpr(0))
-        elif ctx.getChild(1).getText() == "|":
+        elif ctx.getChild(1).getText() == self.UNION_OPERATOR:
             first: LAutomata = self.visit(ctx.regexpr(0))
             second: LAutomata = self.visit(ctx.regexpr(1))
             return first.union(second)
-        elif ctx.getChild(1).getText() == "^":
-            expr: LFiniteAutomata | LCFG = self.visit(ctx.regexpr(0))
+        elif ctx.getChild(1).getText() == self.RANGE_OPERATOR:
+            expr: LAutomata = self.visit(ctx.regexpr(0))
             range: tuple = self.visit(ctx.range_())
-            automata = expr.grammar if isinstance(expr, LCFG) else expr.nfa
-            return self._apply_range_to_nfa(automata, range[0], range[1])
-        elif ctx.getChild(1).getText() == ".":
+            automata = expr.get_internal_expr()
+            return self._apply_range_to_expr(automata, range[0], range[1])
+        elif ctx.getChild(1).getText() == self.CONCAT_OPERATOR:
             first: LAutomata = self.visit(ctx.regexpr(0))
             second: LAutomata = self.visit(ctx.regexpr(1))
             return first.concat(second)
-        else:  # &
+        else:
             first: LAutomata = self.visit(ctx.regexpr(0))
             second: LAutomata = self.visit(ctx.regexpr(1))
             return first.intersect(second)
@@ -164,40 +167,9 @@ class InterpreterVisitor(GraphLanguageVisitor):
             return tuple(n)
         m = int(ctx.NUM(1).getText()) if ctx.NUM(1) else None
         if m is not None and m < n:
-            raise Exception()
+            raise ValueError("Invalid range: end value must be greater than or equal to start value")
 
         return n, m
-
-    def _apply_range_to_nfa(
-        self, nfa: NondeterministicFiniteAutomaton | CFG, n: int, m: int = None
-    ) -> NondeterministicFiniteAutomaton | CFG:
-        subautomata: NondeterministicFiniteAutomaton | CFG = deepcopy(nfa)
-        acc = deepcopy(nfa)
-
-        for _ in range(0, n - 1):
-            acc = acc.concatenate(subautomata)
-        var = Variable(f"RANGE#{n}{m}")
-        result = (
-            CFG(start_symbol=var, productions=[Production(var, [Epsilon()])])
-            if isinstance(nfa, CFG)
-            else self.get_empty_nfa() if n == 0 else acc
-        )
-
-        if m is None:
-            result = result.concatenate(subautomata.kleene_star())
-        else:
-            for _ in range(n, m):
-                acc = acc.concatenate(subautomata)
-                result = result.union(acc)
-
-        return LCFG(result) if isinstance(result, CFG) else LFiniteAutomata(result)
-    
-    def get_empty_nfa(self) -> NondeterministicFiniteAutomaton:
-        nfa = NondeterministicFiniteAutomaton()
-        state = State(0)
-        nfa.add_start_state(state)
-        nfa.add_final_state(state)
-        return nfa
 
     def visitV_filter(self, ctx) -> tuple[str, LSet]:
         var_name = ctx.VAR().getText()
@@ -245,9 +217,9 @@ class InterpreterVisitor(GraphLanguageVisitor):
         if final_var in filters.keys():
             final_nodes = filters[final_var].items
 
-        nfa: NondeterministicFiniteAutomaton = self.envs[-1][
+        nfa: NFA = self.envs[-1][
             graph_name
-        ].nfa  # тут в теории не должно быть стартовых и финальных
+        ].nfa
         for st in start_nodes:
             nfa.add_start_state(st)
         for fn in final_nodes:
@@ -258,19 +230,43 @@ class InterpreterVisitor(GraphLanguageVisitor):
         if isinstance(grammar_expr, LFiniteAutomata):
             rsm = RecursiveAutomaton.from_regex(
                 grammar_expr.nfa.to_regex(), initial_label=Symbol("S")
-            )  # еще эту регулярку надо проверить
+            )
         elif isinstance(grammar_expr, LCFG):
             rsm = cfg_to_rsm(grammar_expr.grammar)
         elif isinstance(grammar_expr, str):
             rsm = RecursiveAutomaton.from_regex(
-                Regex(grammar_expr), Symbol("RSMSTART#")
+                Regex(grammar_expr), Symbol("S")
             )
 
         cfpq_result = tensor_based_cfpq(rsm, nfa, start_nodes, final_nodes)
-        print(f"result: {cfpq_result}")
 
         if len(return_vars) == 2:
             return cfpq_result
         else:
             idx = return_vars[0][1]
             return set([el[idx] for el in cfpq_result])
+    
+    def _apply_range_to_expr(self, expr: NFA | CFG, n: int, m: int = None) -> NFA | CFG:
+        subautomata = deepcopy(expr)
+        acc = deepcopy(expr)
+
+        for _ in range(0, n - 1):
+            acc = acc.concatenate(subautomata)
+
+        result = (self._get_empty_expr(expr) if n == 0 else acc)
+
+        if m is None:
+            result = result.concatenate(subautomata.kleene_star())
+        else:
+            for _ in range(n, m):
+                acc = acc.concatenate(subautomata)
+                result = result.union(acc)
+
+        return LCFG(result) if isinstance(result, CFG) else LFiniteAutomata(result)
+    
+    def _get_empty_expr(self, processed_expr: NFA | CFG) -> NFA:
+        if isinstance(processed_expr, NFA):
+            state = State(0)
+            return NFA(start_state=[state], final_states=[state])
+        else:
+            return CFG(start_symbol=processed_expr.start_symbol, productions=[Production(processed_expr.start_symbol, [])])

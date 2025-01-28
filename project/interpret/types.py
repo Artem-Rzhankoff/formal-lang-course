@@ -55,6 +55,9 @@ class LAutomata:
     @abstractmethod
     def concat(self, second: "LAutomata") -> "LAutomata": ...
 
+    @abstractmethod
+    def get_internal_expr(self) -> CFG | NondeterministicFiniteAutomaton: ...
+
 
 class LCFG(LAutomata, ABC):
     VAR_PREFIX = "VAR#"
@@ -103,6 +106,9 @@ class LCFG(LAutomata, ABC):
         elif isinstance(second, LFiniteAutomata):
             second_regex: Regex = second.nfa.to_regex()
             return LCFG(self.grammar.concatenate(second_regex.to_cfg()))
+    
+    def get_internal_expr(self):
+        return self.grammar
         
     def add_start_symbol(self, start_symbol: str):
         start_var = Variable(start_symbol)
@@ -189,6 +195,9 @@ class LFiniteAutomata(LAutomata, ABC):
         return LCFG(
             self.nfa.to_regex().to_cfg().concatenate(second.grammar)
         )
+    
+    def get_internal_expr(self):
+        return self.nfa
 
     def edges(self) -> LSet:
         edges = set()
