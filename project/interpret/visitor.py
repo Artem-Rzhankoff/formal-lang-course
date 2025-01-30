@@ -5,7 +5,7 @@ from pyformlang.cfg import CFG, Variable, Production, Terminal
 
 from project.GraphLanguageVisitor import GraphLanguageVisitor
 from project.interpret.types import LFiniteAutomata, LTriple, LSet, LAutomata, LCFG
-from project.tensor_based_cfpq import cfg_to_rsm, tensor_based_cfpq
+from project.tensor_based_cfpq import cfg_to_rsm, tensor_based_cfpq_nfa
 from copy import deepcopy
 
 NFA = NondeterministicFiniteAutomaton
@@ -223,7 +223,7 @@ class InterpreterVisitor(GraphLanguageVisitor):
         elif isinstance(grammar_expr, str):
             rsm = RecursiveAutomaton.from_regex(Regex(grammar_expr), Symbol("S"))
 
-        cfpq_result = tensor_based_cfpq(rsm, nfa, start_nodes, final_nodes)
+        cfpq_result = tensor_based_cfpq_nfa(rsm, nfa, start_nodes, final_nodes)
 
         if len(return_vars) == 2:
             return cfpq_result
