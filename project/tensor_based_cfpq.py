@@ -1,10 +1,12 @@
 import itertools
+import networkx as nx
 from scipy.sparse import csc_matrix
 from pyformlang.finite_automaton import Symbol, State
 from pyformlang.rsa import RecursiveAutomaton
 from pyformlang.finite_automaton import NondeterministicFiniteAutomaton
 from pyformlang.cfg import CFG, Production
 from project.task3 import intersect_automata, AdjacencyMatrixFA, get_edges_from_fa
+from project.task2 import graph_to_nfa
 
 __all__ = ["cfg_to_rsm", "ebnf_to_rsm", "tensor_based_cfpq"]
 
@@ -58,8 +60,17 @@ def rsm_to_nfa(rsm: RecursiveAutomaton) -> NondeterministicFiniteAutomaton:
     nfa.add_transitions(transitions)
     return nfa
 
-
 def tensor_based_cfpq(
+        rsm: RecursiveAutomaton,
+        graph: nx.DiGraph,
+        start_nodes: set[int] = None,
+        final_nodes: set[int] = None
+) -> set[tuple[int, int]]:
+    nfa = graph_to_nfa(graph, start_nodes, final_nodes)
+    return tensor_based_cfpq_nfa(rsm, nfa, start_nodes, final_nodes)
+
+
+def tensor_based_cfpq_nfa(
     rsm: RecursiveAutomaton,
     graph_nfa: NondeterministicFiniteAutomaton,
     start_nodes: set[int] = None,

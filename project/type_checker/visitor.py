@@ -173,12 +173,12 @@ class TypeCheckerVisitor(GraphLanguageVisitor):
             second_type = self.visitRegexpr(ctx.regexpr(1))
             self._check_types_consistency_multi(
                 first_type,
-                [Type.FA, Type.CFG],
+                [Type.FA, Type.CFG, Type.CHAR],
                 f"First operand must be FA or CFG, but got {first_type}.",
             )
             self._check_types_consistency_multi(
                 second_type,
-                [Type.FA, Type.CFG],
+                [Type.FA, Type.CFG, Type.CHAR],
                 f"Second operand must be FA or CFG, but got {second_type}.",
             )
             if first_type == Type.CFG and second_type == Type.CFG:

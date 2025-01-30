@@ -26,5 +26,5 @@ class TypeEnviroment:
 
     def get(self, var_name: str):
         if var_name not in self.vars:
-            raise ValueError()
+            raise ValueError(f"Variable '{var_name}' has not been declared")
         return self.vars[var_name]
