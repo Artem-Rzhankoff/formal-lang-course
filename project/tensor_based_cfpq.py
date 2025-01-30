@@ -60,11 +60,12 @@ def rsm_to_nfa(rsm: RecursiveAutomaton) -> NondeterministicFiniteAutomaton:
     nfa.add_transitions(transitions)
     return nfa
 
+
 def tensor_based_cfpq(
-        rsm: RecursiveAutomaton,
-        graph: nx.DiGraph,
-        start_nodes: set[int] = None,
-        final_nodes: set[int] = None
+    rsm: RecursiveAutomaton,
+    graph: nx.DiGraph,
+    start_nodes: set[int] = None,
+    final_nodes: set[int] = None,
 ) -> set[tuple[int, int]]:
     nfa = graph_to_nfa(graph, start_nodes, final_nodes)
     return tensor_based_cfpq_nfa(rsm, nfa, start_nodes, final_nodes)
