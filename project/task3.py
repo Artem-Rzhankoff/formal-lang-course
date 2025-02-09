@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pyformlang.finite_automaton import Symbol, NondeterministicFiniteAutomaton, State
 from networkx import MultiDiGraph
 import itertools
+from typing import Type
 
 
 def get_edges_from_fa(
@@ -26,9 +27,9 @@ def get_edges_from_fa(
 
 
 class AdjacencyMatrixFA:
-    def __init__(self, automation: NondeterministicFiniteAutomaton = None):
-        self.automation = automation
+    def __init__(self, automation: NondeterministicFiniteAutomaton = None, sparse_format: Type[sp.spmatrix] = sp.csr_matrix):
         self.matricies = {}
+        self.sparse_format = sparse_format
 
         if automation is None:
             self.states = {}
@@ -47,7 +48,7 @@ class AdjacencyMatrixFA:
         column_states, symbols, row_states = ([], [], []) if not edges else edges
         for s in self.alphabet:
             mask = np.equal(list(symbols), s).astype(bool)
-            self.matricies[s] = sp.csc_matrix(
+            self.matricies[s] = self.sparse_format(
                 (
                     mask,
                     (
@@ -91,7 +92,7 @@ class AdjacencyMatrixFA:
         n = self.states_count
         matrices = list(self.matricies.values())
 
-        common_matrix = sp.csc_matrix(
+        common_matrix = self.sparse_format(
             (np.ones(n, dtype=bool), (range(n), range(n))), shape=(n, n)
         )
 
@@ -107,7 +108,7 @@ class AdjacencyMatrixFA:
 
 
 def intersect_automata(
-    automaton1: AdjacencyMatrixFA, automaton2: AdjacencyMatrixFA
+    automaton1: AdjacencyMatrixFA, automaton2: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csr_matrix
 ) -> AdjacencyMatrixFA:
     A1, A2 = automaton1.matricies, automaton2.matricies
 
@@ -118,7 +119,7 @@ def intersect_automata(
     for k in A1.keys():
         if A2.get(k) is None:
             continue
-        intersect.matricies[k] = sp.kron(A1[k], A2[k], format="csc")
+        intersect.matricies[k] = sp.kron(A1[k], A2[k], format=sparse_format([[]]).getformat())
 
     intersect.states = {
         (i1, i2): (
@@ -149,14 +150,14 @@ def intersect_automata(
 
 
 def tensor_based_rpq(
-    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int]
+    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csr_matrix
 ) -> set[tuple[int, int]]:
-    adj_matrix_by_reg = AdjacencyMatrixFA(regex_to_dfa(regex))
+    adj_matrix_by_reg = AdjacencyMatrixFA(regex_to_dfa(regex), sparse_format)
     adj_matrix_by_graph = AdjacencyMatrixFA(
-        graph_to_nfa(graph, start_nodes, final_nodes)
+        graph_to_nfa(graph, start_nodes, final_nodes), sparse_format
     )
 
-    intersect = intersect_automata(adj_matrix_by_reg, adj_matrix_by_graph)
+    intersect = intersect_automata(adj_matrix_by_reg, adj_matrix_by_graph, sparse_format)
 
     tr_cl = intersect.transitive_closure()
 
