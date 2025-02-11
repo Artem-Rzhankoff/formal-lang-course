@@ -9,7 +9,7 @@ from project.task3 import AdjacencyMatrixFA
 
 
 def _initial_front(
-    dfa: AdjacencyMatrixFA, dfa_start_state: int, nfa: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csr_matrix
+    dfa: AdjacencyMatrixFA, dfa_start_state: int, nfa: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csc_matrix
 ):
     nfa_st_states_count = len(nfa.start_states)
     data = np.ones(nfa_st_states_count, dtype=bool)
@@ -24,7 +24,7 @@ def _initial_front(
 
 
 def ms_bfs_based_rpq(
-    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csr_matrix
+    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csc_matrix
 ) -> set[tuple[int, int]]:
     adj_matrix_dfa = AdjacencyMatrixFA(regex_to_dfa(regex), sparse_format)
     adj_matrix_nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes), sparse_format)
