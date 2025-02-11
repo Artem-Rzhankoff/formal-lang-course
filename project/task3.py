@@ -27,7 +27,7 @@ def get_edges_from_fa(
 
 
 class AdjacencyMatrixFA:
-    def __init__(self, automation: NondeterministicFiniteAutomaton = None, sparse_format: Type[sp.spmatrix] = sp.csr_matrix):
+    def __init__(self, automation: NondeterministicFiniteAutomaton = None, sparse_format: Type[sp.spmatrix] = sp.csc_matrix):
         self.matricies = {}
         self.sparse_format = sparse_format
 
@@ -47,17 +47,25 @@ class AdjacencyMatrixFA:
         edges = tuple(zip(*get_edges_from_fa(automation)))
         column_states, symbols, row_states = ([], [], []) if not edges else edges
         for s in self.alphabet:
-            mask = np.equal(list(symbols), s).astype(bool)
-            self.matricies[s] = self.sparse_format(
-                (
-                    mask,
+            mask = np.equal(list(symbols), s).astype(int)
+            if self.sparse_format == sp.dok_matrix or self.sparse_format == sp.lil_matrix:
+                coo = sp.coo_matrix(
+                    (mask, ([self.states[state] for state in list(row_states)],
+                            [self.states[state] for state in list(column_states)])),
+                    shape=(self.states_count, self.states_count)
+                )
+                self.matricies[s] = coo.todok() if self.sparse_format == sp.dok_matrix else coo.tolil()
+            else:
+                self.matricies[s] = self.sparse_format(
                     (
-                        [self.states[state] for state in list(column_states)],
-                        [self.states[state] for state in list(row_states)],
+                        mask,
+                        (
+                            [self.states[state] for state in list(column_states)],
+                            [self.states[state] for state in list(row_states)],
+                        ),
                     ),
-                ),
-                shape=(self.states_count, self.states_count),
-            )
+                    shape=(self.states_count, self.states_count),
+                )
 
         self.start_states = {self.states[key] for key in automation.start_states}
         self.final_states = {self.states[key] for key in automation.final_states}
@@ -88,7 +96,7 @@ class AdjacencyMatrixFA:
 
         return True
 
-    def transitive_closure(self) -> sp.csc_matrix:
+    def transitive_closure(self):
         n = self.states_count
         matrices = list(self.matricies.values())
 
@@ -98,7 +106,7 @@ class AdjacencyMatrixFA:
 
         return functools.reduce(operator.add, matrices, common_matrix) ** n
 
-    def update_matricies(self, delta: dict[Symbol, sp.csc_matrix]):
+    def update_matricies(self, delta: dict[Symbol, Type[sp.spmatrix]]):
         for var, matrix in delta.items():
             if var in self.matricies:
                 self.matricies[var] += matrix
@@ -108,7 +116,7 @@ class AdjacencyMatrixFA:
 
 
 def intersect_automata(
-    automaton1: AdjacencyMatrixFA, automaton2: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csr_matrix
+    automaton1: AdjacencyMatrixFA, automaton2: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csc_matrix
 ) -> AdjacencyMatrixFA:
     A1, A2 = automaton1.matricies, automaton2.matricies
 
@@ -150,7 +158,7 @@ def intersect_automata(
 
 
 def tensor_based_rpq(
-    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csr_matrix
+    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csc_matrix
 ) -> set[tuple[int, int]]:
     adj_matrix_by_reg = AdjacencyMatrixFA(regex_to_dfa(regex), sparse_format)
     adj_matrix_by_graph = AdjacencyMatrixFA(
