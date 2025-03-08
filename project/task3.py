@@ -25,6 +25,12 @@ def get_edges_from_fa(
 
     return edges
 
+def get_matrix_by_sp_format(arg1: any, shape: any, sparse_format: Type[sp.spmatrix]):
+    if sparse_format in [sp.dok_matrix, sp.lil_matrix]:
+        coo = sp.coo_matrix(arg1, shape, dtype=bool)
+        return coo.todok() if sparse_format == sp.dok_matrix else coo.tolil()
+    return sparse_format(arg1, shape, dtype=bool)
+
 
 class AdjacencyMatrixFA:
     def __init__(self, automation: NondeterministicFiniteAutomaton = None, sparse_format: Type[sp.spmatrix] = sp.csc_matrix):
@@ -66,6 +72,14 @@ class AdjacencyMatrixFA:
                     ),
                     shape=(self.states_count, self.states_count),
                 )
+            self.matricies[s] = get_matrix_by_sp_format((
+                        mask,
+                        (
+                            [self.states[state] for state in list(column_states)],
+                            [self.states[state] for state in list(row_states)],
+                        ),
+                    ),
+                    (self.states_count, self.states_count), sparse_format)
 
         self.start_states = {self.states[key] for key in automation.start_states}
         self.final_states = {self.states[key] for key in automation.final_states}

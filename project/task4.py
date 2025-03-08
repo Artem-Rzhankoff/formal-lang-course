@@ -5,7 +5,7 @@ from pyformlang.finite_automaton import Symbol
 from functools import reduce
 import scipy.sparse as sp
 from project.task2 import regex_to_dfa, graph_to_nfa
-from project.task3 import AdjacencyMatrixFA
+from project.task3 import AdjacencyMatrixFA, get_matrix_by_sp_format
 
 
 def _initial_front(
@@ -16,10 +16,10 @@ def _initial_front(
     rows = [dfa_start_state + dfa.states_count * i for i in range(nfa_st_states_count)]
     columns = [st_state for st_state in nfa.start_states]
 
-    return sparse_format(
+    return get_matrix_by_sp_format(
         (data, (rows, columns)),
-        shape=(dfa.states_count * nfa_st_states_count, nfa.states_count),
-        dtype=bool,
+        (dfa.states_count * nfa_st_states_count, nfa.states_count),
+        sparse_format,
     )
 
 
