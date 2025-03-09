@@ -9,7 +9,10 @@ from project.task3 import AdjacencyMatrixFA, get_matrix_by_sp_format
 
 
 def _initial_front(
-    dfa: AdjacencyMatrixFA, dfa_start_state: int, nfa: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csc_matrix
+    dfa: AdjacencyMatrixFA,
+    dfa_start_state: int,
+    nfa: AdjacencyMatrixFA,
+    sparse_format: Type[sp.spmatrix] = sp.csc_matrix,
 ):
     nfa_st_states_count = len(nfa.start_states)
     data = np.ones(nfa_st_states_count, dtype=bool)
@@ -24,10 +27,16 @@ def _initial_front(
 
 
 def ms_bfs_based_rpq(
-    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csc_matrix
+    regex: str,
+    graph: MultiDiGraph,
+    start_nodes: set[int],
+    final_nodes: set[int],
+    sparse_format: Type[sp.spmatrix] = sp.csc_matrix,
 ) -> set[tuple[int, int]]:
     adj_matrix_dfa = AdjacencyMatrixFA(regex_to_dfa(regex), sparse_format)
-    adj_matrix_nfa = AdjacencyMatrixFA(graph_to_nfa(graph, start_nodes, final_nodes), sparse_format)
+    adj_matrix_nfa = AdjacencyMatrixFA(
+        graph_to_nfa(graph, start_nodes, final_nodes), sparse_format
+    )
 
     transposed_matricies: dict[Symbol, Type[sp.spmatrix]] = {}
     for symbol, matrix in adj_matrix_dfa.matricies.items():
@@ -38,7 +47,9 @@ def ms_bfs_based_rpq(
 
     nfa_start_states = adj_matrix_nfa.start_states
 
-    front = _initial_front(adj_matrix_dfa, dfa_start_state, adj_matrix_nfa, sparse_format)
+    front = _initial_front(
+        adj_matrix_dfa, dfa_start_state, adj_matrix_nfa, sparse_format
+    )
     visited = front
 
     symbols = adj_matrix_dfa.matricies.keys() & adj_matrix_nfa.matricies.keys()

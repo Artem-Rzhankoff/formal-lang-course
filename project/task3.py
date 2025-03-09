@@ -25,6 +25,7 @@ def get_edges_from_fa(
 
     return edges
 
+
 def get_matrix_by_sp_format(arg1: any, shape: any, sparse_format: Type[sp.spmatrix]):
     if sparse_format in [sp.dok_matrix, sp.lil_matrix]:
         coo = sp.coo_matrix(arg1, shape, dtype=bool)
@@ -33,7 +34,11 @@ def get_matrix_by_sp_format(arg1: any, shape: any, sparse_format: Type[sp.spmatr
 
 
 class AdjacencyMatrixFA:
-    def __init__(self, automation: NondeterministicFiniteAutomaton = None, sparse_format: Type[sp.spmatrix] = sp.csc_matrix):
+    def __init__(
+        self,
+        automation: NondeterministicFiniteAutomaton = None,
+        sparse_format: Type[sp.spmatrix] = sp.csc_matrix,
+    ):
         self.matricies = {}
         self.sparse_format = sparse_format
 
@@ -54,13 +59,23 @@ class AdjacencyMatrixFA:
         column_states, symbols, row_states = ([], [], []) if not edges else edges
         for s in self.alphabet:
             mask = np.equal(list(symbols), s).astype(int)
-            if self.sparse_format == sp.dok_matrix or self.sparse_format == sp.lil_matrix:
+            if (
+                self.sparse_format == sp.dok_matrix
+                or self.sparse_format == sp.lil_matrix
+            ):
                 coo = sp.coo_matrix(
-                    (mask, ([self.states[state] for state in list(row_states)],
-                            [self.states[state] for state in list(column_states)])),
-                    shape=(self.states_count, self.states_count)
+                    (
+                        mask,
+                        (
+                            [self.states[state] for state in list(row_states)],
+                            [self.states[state] for state in list(column_states)],
+                        ),
+                    ),
+                    shape=(self.states_count, self.states_count),
                 )
-                self.matricies[s] = coo.todok() if self.sparse_format == sp.dok_matrix else coo.tolil()
+                self.matricies[s] = (
+                    coo.todok() if self.sparse_format == sp.dok_matrix else coo.tolil()
+                )
             else:
                 self.matricies[s] = self.sparse_format(
                     (
@@ -72,14 +87,17 @@ class AdjacencyMatrixFA:
                     ),
                     shape=(self.states_count, self.states_count),
                 )
-            self.matricies[s] = get_matrix_by_sp_format((
-                        mask,
-                        (
-                            [self.states[state] for state in list(column_states)],
-                            [self.states[state] for state in list(row_states)],
-                        ),
+            self.matricies[s] = get_matrix_by_sp_format(
+                (
+                    mask,
+                    (
+                        [self.states[state] for state in list(column_states)],
+                        [self.states[state] for state in list(row_states)],
                     ),
-                    (self.states_count, self.states_count), sparse_format)
+                ),
+                (self.states_count, self.states_count),
+                sparse_format,
+            )
 
         self.start_states = {self.states[key] for key in automation.start_states}
         self.final_states = {self.states[key] for key in automation.final_states}
@@ -130,7 +148,9 @@ class AdjacencyMatrixFA:
 
 
 def intersect_automata(
-    automaton1: AdjacencyMatrixFA, automaton2: AdjacencyMatrixFA, sparse_format: Type[sp.spmatrix] = sp.csc_matrix
+    automaton1: AdjacencyMatrixFA,
+    automaton2: AdjacencyMatrixFA,
+    sparse_format: Type[sp.spmatrix] = sp.csc_matrix,
 ) -> AdjacencyMatrixFA:
     A1, A2 = automaton1.matricies, automaton2.matricies
 
@@ -141,7 +161,9 @@ def intersect_automata(
     for k in A1.keys():
         if A2.get(k) is None:
             continue
-        intersect.matricies[k] = sp.kron(A1[k], A2[k], format=sparse_format([[]]).getformat())
+        intersect.matricies[k] = sp.kron(
+            A1[k], A2[k], format=sparse_format([[]]).getformat()
+        )
 
     intersect.states = {
         (i1, i2): (
@@ -172,14 +194,20 @@ def intersect_automata(
 
 
 def tensor_based_rpq(
-    regex: str, graph: MultiDiGraph, start_nodes: set[int], final_nodes: set[int], sparse_format: Type[sp.spmatrix] = sp.csc_matrix
+    regex: str,
+    graph: MultiDiGraph,
+    start_nodes: set[int],
+    final_nodes: set[int],
+    sparse_format: Type[sp.spmatrix] = sp.csc_matrix,
 ) -> set[tuple[int, int]]:
     adj_matrix_by_reg = AdjacencyMatrixFA(regex_to_dfa(regex), sparse_format)
     adj_matrix_by_graph = AdjacencyMatrixFA(
         graph_to_nfa(graph, start_nodes, final_nodes), sparse_format
     )
 
-    intersect = intersect_automata(adj_matrix_by_reg, adj_matrix_by_graph, sparse_format)
+    intersect = intersect_automata(
+        adj_matrix_by_reg, adj_matrix_by_graph, sparse_format
+    )
 
     tr_cl = intersect.transitive_closure()
 
